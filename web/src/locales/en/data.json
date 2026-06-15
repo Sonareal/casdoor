@@ -1772,5 +1772,36 @@
     "Unknown": "Unknown",
     "Value": "Value",
     "Webhook event replay triggered": "Webhook event replay triggered"
+  },
+  "withdrawal": {
+    "Withdrawals": "Withdrawals",
+    "Amount": "Amount",
+    "Channel": "Channel",
+    "Payee": "Payee",
+    "Transfer No.": "Transfer No.",
+    "Approve": "Approve",
+    "Reject": "Reject",
+    "Approve this withdrawal": "Approve this withdrawal",
+    "Reject this withdrawal": "Reject this withdrawal",
+    "Mark paid": "Mark paid",
+    "Mark failed": "Mark failed",
+    "Mark this withdrawal failed": "Mark this withdrawal failed",
+    "Enter the external transfer No.": "Enter the external transfer No.",
+    "Transfer failed": "Transfer failed"
+  },
+  "referral": {
+    "Referral policy": "Referral policy",
+    "Enabled": "Enabled",
+    "Default rate": "Default rate",
+    "Max rate": "Max rate",
+    "Auto-upgrade": "Auto-upgrade",
+    "Upgrade basis": "Upgrade basis",
+    "Min invites": "Min invites",
+    "Rate": "Rate",
+    "Tier": "Tier",
+    "Auto-upgrade tiers": "Auto-upgrade tiers",
+    "Group rates": "Group rates",
+    "paid (first orders)": "paid (first orders)",
+    "signup (registrations)": "signup (registrations)"
   }
 }
