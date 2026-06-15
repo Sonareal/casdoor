@@ -27,8 +27,10 @@ import (
 type TransactionCategory string
 
 const (
-	TransactionCategoryPurchase TransactionCategory = "Purchase"
-	TransactionCategoryRecharge TransactionCategory = "Recharge"
+	TransactionCategoryPurchase   TransactionCategory = "Purchase"
+	TransactionCategoryRecharge   TransactionCategory = "Recharge"
+	TransactionCategoryCommission TransactionCategory = "Commission" // referral commission credited to inviter
+	TransactionCategoryWithdrawal TransactionCategory = "Withdrawal" // balance withdrawn out
 )
 
 type Transaction struct {

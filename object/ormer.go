@@ -430,6 +430,16 @@ func (a *Ormer) createTable() {
 		panic(err)
 	}
 
+	err = a.Engine.Sync2(new(ReferralPolicy))
+	if err != nil {
+		panic(err)
+	}
+
+	err = a.Engine.Sync2(new(Withdrawal))
+	if err != nil {
+		panic(err)
+	}
+
 	err = a.Engine.Sync2(new(Coupon))
 	if err != nil {
 		panic(err)
