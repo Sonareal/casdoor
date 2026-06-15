@@ -265,6 +265,8 @@ type Userinfo struct {
 	Permissions   []string           `json:"permissions,omitempty"`
 	Subscriptions []SubscriptionInfo `json:"subscriptions,omitempty"`
 	CreatedTime   string             `json:"createdTime,omitempty"`
+	Balance       float64            `json:"balance,omitempty"`
+	Currency      string             `json:"currency,omitempty"`
 }
 
 // SubscriptionInfo is a lightweight view of an active subscription, exposed in userinfo
@@ -1232,6 +1234,8 @@ func GetUserInfo(user *User, scope string, aud string, host string) (*Userinfo, 
 		resp.Avatar = user.Avatar
 		resp.Groups = user.Groups
 		resp.CreatedTime = user.CreatedTime
+		resp.Balance = user.Balance
+		resp.Currency = user.BalanceCurrency
 
 		err := ExtendUserWithRolesAndPermissions(user)
 		if err != nil {

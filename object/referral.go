@@ -107,6 +107,46 @@ func EnsurePersonalInvitation(user *User) (*Invitation, error) {
 	return inv, nil
 }
 
+// SetReferralRate sets a user's per-user override rate and/or group tier on their personal invitation.
+// rate == -2 means "leave unchanged"; -1 clears the override; >=0 sets it (0 = explicit 0%). Validated against policy max.
+func SetReferralRate(userId string, rate float64, tier string, setTier bool, lang string) (*Invitation, error) {
+	owner, name := util.GetOwnerAndNameFromIdNoCheck(userId)
+	user, err := getUser(owner, name)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil {
+		return nil, fmt.Errorf("the user: %s does not exist", userId)
+	}
+	inv, err := EnsurePersonalInvitation(user)
+	if err != nil {
+		return nil, err
+	}
+
+	if rate != -2 {
+		if rate >= 0 {
+			policy, perr := GetReferralPolicy(owner)
+			if perr != nil {
+				return nil, perr
+			}
+			if rate > policy.effectiveMaxRate() {
+				return nil, errCommissionRate(lang)
+			}
+		} else {
+			rate = -1 // normalize any negative to "unset"
+		}
+		inv.CommissionRate = rate
+	}
+	if setTier {
+		inv.Tier = tier
+	}
+	inv.UpdatedTime = util.GetCurrentTime()
+	if _, err = ormer.Engine.ID(core.PK{inv.Owner, inv.Name}).Cols("commission_rate", "tier", "updated_time").Update(inv); err != nil {
+		return nil, err
+	}
+	return inv, nil
+}
+
 // GetReferrerOfUser returns the user who referred the given user (via the invitation code used at signup).
 func GetReferrerOfUser(user *User) (*User, error) {
 	if user == nil || user.Invitation == "" {
@@ -209,6 +249,38 @@ func getCommissionByPayer(owner string, payerId string) (*Transaction, error) {
 		return &t, nil
 	}
 	return nil, nil
+}
+
+// CountInvitedUsers returns how many users registered with the given personal invitation.
+func CountInvitedUsers(owner string, invitationName string) (int, error) {
+	if owner == "" || invitationName == "" {
+		return 0, nil
+	}
+	cnt, err := ormer.Engine.Count(&User{Owner: owner, Invitation: invitationName})
+	return int(cnt), err
+}
+
+// GetInvitees returns the users who registered with the given personal invitation.
+func GetInvitees(owner string, invitationName string) ([]*User, error) {
+	users := []*User{}
+	if owner == "" || invitationName == "" {
+		return users, nil
+	}
+	err := ormer.Engine.Desc("created_time").Find(&users, &User{Owner: owner, Invitation: invitationName})
+	return users, err
+}
+
+// IsInviteePaid reports whether the given invitee already produced a commission.
+func IsInviteePaid(owner string, inviteeId string) bool {
+	t, err := getCommissionByPayer(owner, inviteeId)
+	return err == nil && t != nil
+}
+
+// GetUserCommissions returns commission transactions credited to the user (newest first).
+func GetUserCommissions(owner string, user string) ([]*Transaction, error) {
+	transactions := []*Transaction{}
+	err := ormer.Engine.Desc("created_time").Find(&transactions, &Transaction{Owner: owner, User: user, Category: TransactionCategoryCommission})
+	return transactions, err
 }
 
 // GrantReferralCommission credits the referrer of the paying user.
