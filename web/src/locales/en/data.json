@@ -1802,6 +1802,13 @@
     "Auto-upgrade tiers": "Auto-upgrade tiers",
     "Group rates": "Group rates",
     "paid (first orders)": "paid (first orders)",
-    "signup (registrations)": "signup (registrations)"
+    "signup (registrations)": "signup (registrations)",
+    "Per-user rate": "Per-user rate",
+    "Load": "Load",
+    "Effective rate": "Effective rate",
+    "Paid invites": "Paid invites",
+    "Override rate": "Override rate",
+    "-1 = unset, 0 = explicit 0%": "-1 = unset, 0 = explicit 0%",
+    "Please enter a user id (org/name)": "Please enter a user id (org/name)"
   }
 }

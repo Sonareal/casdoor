@@ -1802,6 +1802,13 @@
     "Auto-upgrade tiers": "自动升档阶梯",
     "Group rates": "分组费率",
     "paid (first orders)": "已付费首单数",
-    "signup (registrations)": "注册数"
+    "signup (registrations)": "注册数",
+    "Per-user rate": "单独费率",
+    "Load": "加载",
+    "Effective rate": "生效费率",
+    "Paid invites": "已付费邀请数",
+    "Override rate": "单独费率覆盖值",
+    "-1 = unset, 0 = explicit 0%": "-1 = 未设, 0 = 显式 0%",
+    "Please enter a user id (org/name)": "请输入用户 id（组织/用户名）"
   }
 }
