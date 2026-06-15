@@ -41,6 +41,8 @@ import GroupEditPage from "./GroupEditPage";
 import UserEditPage from "./UserEditPage";
 import InvitationListPage from "./InvitationListPage";
 import InvitationEditPage from "./InvitationEditPage";
+import WithdrawalListPage from "./WithdrawalListPage";
+import ReferralPolicyPage from "./ReferralPolicyPage";
 import ApplicationListPage from "./ApplicationListPage";
 import ApplicationEditPage from "./ApplicationEditPage";
 import ProviderListPage from "./ProviderListPage";
@@ -128,7 +130,7 @@ import RuleEditPage from "./RuleEditPage";
 function getMenuParentKey(uri) {
   if (!uri) {return null;}
   if (uri === "/" || uri.includes("/shortcuts") || uri.includes("/apps")) {return "/home";}
-  if (uri.includes("/organizations") || uri.includes("/trees") || uri.includes("/groups") || uri.includes("/users") || uri.includes("/invitations")) {return "/orgs";}
+  if (uri.includes("/organizations") || uri.includes("/trees") || uri.includes("/groups") || uri.includes("/users") || uri.includes("/invitations") || uri.includes("/withdrawals") || uri.includes("/referral-policy")) {return "/orgs";}
   if (uri.includes("/applications") || uri.includes("/providers") || uri.includes("/resources") || uri.includes("/certs") || uri.includes("/keys")) {return "/identity";}
   if (uri.includes("/agents") || uri.includes("/servers") || uri.includes("/server-store") || uri.includes("/entries") || uri.includes("/sites") || uri.includes("/rules")) {return "/gateway";}
   if (uri.includes("/roles") || uri.includes("/permissions") || uri.includes("/models") || uri.includes("/adapters") || uri.includes("/enforcers")) {return "/auth";}
@@ -365,6 +367,8 @@ function ManagementPage(props) {
       Setting.getItem(<Link to="/groups">{i18next.t("general:Groups")}</Link>, "/groups"),
       Setting.getItem(<Link to="/users">{i18next.t("general:Users")}</Link>, "/users"),
       Setting.getItem(<Link to="/invitations">{i18next.t("general:Invitations")}</Link>, "/invitations"),
+      Setting.getItem(<Link to="/withdrawals">{i18next.t("withdrawal:Withdrawals")}</Link>, "/withdrawals"),
+      Setting.getItem(<Link to="/referral-policy">{i18next.t("referral:Referral policy")}</Link>, "/referral-policy"),
     ]));
 
     res.push(Setting.getItem(<Link style={{color: textColor}} to="/applications">{i18next.t("general:Identity")}</Link>, "/identity", <LockOutlined />, [
@@ -530,6 +534,8 @@ function ManagementPage(props) {
         <Route exact path="/users/:organizationName/:userName" render={(props) => <UserEditPage account={account} {...props} />} />
         <Route exact path="/invitations" render={(props) => renderLoginIfNotLoggedIn(<InvitationListPage account={account} {...props} />)} />
         <Route exact path="/invitations/:organizationName/:invitationName" render={(props) => renderLoginIfNotLoggedIn(<InvitationEditPage account={account} {...props} />)} />
+        <Route exact path="/withdrawals" render={(props) => renderLoginIfNotLoggedIn(<WithdrawalListPage account={account} {...props} />)} />
+        <Route exact path="/referral-policy" render={(props) => renderLoginIfNotLoggedIn(<ReferralPolicyPage account={account} {...props} />)} />
         <Route exact path="/applications" render={(props) => renderLoginIfNotLoggedIn(<ApplicationListPage account={account} {...props} />)} />
         <Route exact path="/applications/:organizationName/:applicationName" render={(props) => renderLoginIfNotLoggedIn(<ApplicationEditPage account={account} {...props} />)} />
         <Route exact path="/providers" render={(props) => renderLoginIfNotLoggedIn(<ProviderListPage account={account} {...props} />)} />
