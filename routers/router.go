@@ -123,6 +123,11 @@ func InitAPI() {
 	web.Router("/api/get-withdrawals", &controllers.ApiController{}, "GET:GetWithdrawals")
 	web.Router("/api/review-withdrawal", &controllers.ApiController{}, "POST:ReviewWithdrawal")
 	web.Router("/api/mark-withdrawal-paid", &controllers.ApiController{}, "POST:MarkWithdrawalPaid")
+	web.Router("/api/get-gift-cards", &controllers.ApiController{}, "GET:GetGiftCards")
+	web.Router("/api/generate-gift-cards", &controllers.ApiController{}, "POST:GenerateGiftCards")
+	web.Router("/api/update-gift-card", &controllers.ApiController{}, "POST:UpdateGiftCard")
+	web.Router("/api/delete-gift-card", &controllers.ApiController{}, "POST:DeleteGiftCard")
+	web.Router("/api/redeem-gift-card", &controllers.ApiController{}, "POST:RedeemGiftCard")
 
 	web.Router("/api/get-applications", &controllers.ApiController{}, "GET:GetApplications")
 	web.Router("/api/get-application", &controllers.ApiController{}, "GET:GetApplication")

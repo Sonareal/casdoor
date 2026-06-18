@@ -1810,5 +1810,19 @@
     "Override rate": "Override rate",
     "-1 = unset, 0 = explicit 0%": "-1 = unset, 0 = explicit 0%",
     "Please enter a user id (org/name)": "Please enter a user id (org/name)"
+  },
+  "gift": {
+    "Gift cards": "Gift cards",
+    "Gift card": "Gift card",
+    "Generate": "Generate",
+    "Generate gift cards": "Generate gift cards",
+    "Batch": "Batch",
+    "Code": "Code",
+    "Plan": "Plan",
+    "Quantity": "Quantity",
+    "Used by": "Used by",
+    "QR code": "QR code",
+    "Disable": "Disable",
+    "Disable this gift card": "Disable this gift card"
   }
 }

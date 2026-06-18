@@ -1810,5 +1810,19 @@
     "Override rate": "单独费率覆盖值",
     "-1 = unset, 0 = explicit 0%": "-1 = 未设, 0 = 显式 0%",
     "Please enter a user id (org/name)": "请输入用户 id（组织/用户名）"
+  },
+  "gift": {
+    "Gift cards": "礼品卡",
+    "Gift card": "礼品卡",
+    "Generate": "批量生成",
+    "Generate gift cards": "批量生成礼品卡",
+    "Batch": "批次",
+    "Code": "激活码",
+    "Plan": "订阅档位",
+    "Quantity": "数量",
+    "Used by": "已被使用",
+    "QR code": "二维码",
+    "Disable": "停用",
+    "Disable this gift card": "停用该礼品卡"
   }
 }

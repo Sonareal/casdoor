@@ -44,6 +44,7 @@ import InvitationEditPage from "./InvitationEditPage";
 import WithdrawalListPage from "./WithdrawalListPage";
 import ReferralPolicyPage from "./ReferralPolicyPage";
 import ReferralRatePage from "./ReferralRatePage";
+import GiftCardListPage from "./GiftCardListPage";
 import ApplicationListPage from "./ApplicationListPage";
 import ApplicationEditPage from "./ApplicationEditPage";
 import ProviderListPage from "./ProviderListPage";
@@ -136,7 +137,7 @@ function getMenuParentKey(uri) {
   if (uri.includes("/agents") || uri.includes("/servers") || uri.includes("/server-store") || uri.includes("/entries") || uri.includes("/sites") || uri.includes("/rules")) {return "/gateway";}
   if (uri.includes("/roles") || uri.includes("/permissions") || uri.includes("/models") || uri.includes("/adapters") || uri.includes("/enforcers")) {return "/auth";}
   if (uri.includes("/records") || uri.includes("/tokens") || uri.includes("/sessions") || uri.includes("/verifications")) {return "/logs";}
-  if (uri.includes("/product-store") || uri.includes("/products") || uri.includes("/coupons") || uri.includes("/orders") || uri.includes("/payments") || uri.includes("/plans") || uri.includes("/pricings") || uri.includes("/subscriptions") || uri.includes("/transactions") || uri.includes("/cart")) {return "/business";}
+  if (uri.includes("/product-store") || uri.includes("/products") || uri.includes("/coupons") || uri.includes("/orders") || uri.includes("/payments") || uri.includes("/plans") || uri.includes("/pricings") || uri.includes("/subscriptions") || uri.includes("/gift-cards") || uri.includes("/transactions") || uri.includes("/cart")) {return "/business";}
   if (uri.includes("/sysinfo") || uri.includes("/forms") || uri.includes("/syncers") || uri.includes("/webhooks") || uri.includes("/webhook-events") || uri.includes("/tickets")) {return "/admin";}
   return null;
 }
@@ -421,6 +422,7 @@ function ManagementPage(props) {
       Setting.getItem(<Link to="/plans">{i18next.t("general:Plans")}</Link>, "/plans"),
       Setting.getItem(<Link to="/pricings">{i18next.t("general:Pricings")}</Link>, "/pricings"),
       Setting.getItem(<Link to="/subscriptions">{i18next.t("general:Subscriptions")}</Link>, "/subscriptions"),
+      Setting.getItem(<Link to="/gift-cards">{i18next.t("gift:Gift cards")}</Link>, "/gift-cards"),
       Setting.getItem(<Link to="/transactions">{i18next.t("general:Transactions")}</Link>, "/transactions"),
     ]));
 
@@ -594,6 +596,7 @@ function ManagementPage(props) {
         <Route exact path="/pricings/:organizationName/:pricingName" render={(props) => renderLoginIfNotLoggedIn(<PricingEditPage account={account} {...props} />)} />
         <Route exact path="/subscriptions" render={(props) => renderLoginIfNotLoggedIn(<SubscriptionListPage account={account} {...props} />)} />
         <Route exact path="/subscriptions/:organizationName/:subscriptionName" render={(props) => renderLoginIfNotLoggedIn(<SubscriptionEditPage account={account} {...props} />)} />
+        <Route exact path="/gift-cards" render={(props) => renderLoginIfNotLoggedIn(<GiftCardListPage account={account} {...props} />)} />
         <Route exact path="/sysinfo" render={(props) => renderLoginIfNotLoggedIn(<SystemInfo account={account} {...props} />)} />
         <Route exact path="/forms" render={(props) => renderLoginIfNotLoggedIn(<FormListPage account={account} {...props} />)} />
         <Route exact path="/forms/:formName" render={(props) => renderLoginIfNotLoggedIn(<FormEditPage account={account} {...props} />)} />
