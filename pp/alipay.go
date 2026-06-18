@@ -27,22 +27,33 @@ type AlipayPaymentProvider struct {
 	Client *alipay.Client
 }
 
-func NewAlipayPaymentProvider(appId string, appCertificate string, appPrivateKey string, authorityPublicKey string, authorityRootPublicKey string) (*AlipayPaymentProvider, error) {
-	// clientId => appId
-	// cert.Certificate => appCertificate
-	// cert.PrivateKey => appPrivateKey
-	// rootCert.Certificate => authorityPublicKey
-	// rootCert.PrivateKey => authorityRootPublicKey
+func NewAlipayPaymentProvider(appId string, appCertificate string, appPrivateKey string, authorityPublicKey string, authorityRootPublicKey string, alipayPublicKey string) (*AlipayPaymentProvider, error) {
+	// clientId             => appId
+	// cert.Certificate     => appCertificate          (certificate mode)
+	// cert.PrivateKey       => appPrivateKey
+	// rootCert.Certificate => authorityPublicKey       (certificate mode)
+	// rootCert.PrivateKey  => authorityRootPublicKey
+	// content              => alipayPublicKey          (public-key mode, 支付宝公钥)
 	pp := &AlipayPaymentProvider{}
+
+	if appId == "" || appPrivateKey == "" {
+		return pp, nil
+	}
 
 	client, err := alipay.NewClient(appId, appPrivateKey, true)
 	if err != nil {
 		return nil, err
 	}
 
-	err = client.SetCertSnByContent([]byte(appCertificate), []byte(authorityRootPublicKey), []byte(authorityPublicKey))
-	if err != nil {
-		return nil, err
+	if appCertificate != "" && authorityPublicKey != "" && authorityRootPublicKey != "" {
+		// certificate mode: app public cert + Alipay public cert + Alipay root cert
+		err = client.SetCertSnByContent([]byte(appCertificate), []byte(authorityRootPublicKey), []byte(authorityPublicKey))
+		if err != nil {
+			return nil, err
+		}
+	} else if alipayPublicKey != "" {
+		// public-key mode: verify Alipay responses with the configured Alipay public key
+		client.AutoVerifySign([]byte(alipayPublicKey))
 	}
 
 	pp.Client = client
@@ -58,6 +69,39 @@ func (pp *AlipayPaymentProvider) Pay(r *PayReq) (*PayResp, error) {
 	bm.Set("out_trade_no", r.PaymentName)
 	bm.Set("total_amount", priceFloat64ToString(r.Price))
 
+	// App payment (alipay.trade.app.pay): return the signed orderStr for the mobile SDK
+	if r.PaymentEnv == PaymentEnvAlipayApp {
+		orderStr, err := pp.Client.TradeAppPay(context.Background(), bm)
+		if err != nil {
+			return nil, err
+		}
+		payResp := &PayResp{
+			OrderId: r.PaymentName,
+			AttachInfo: map[string]interface{}{
+				"orderStr": orderStr,
+			},
+		}
+		return payResp, nil
+	}
+
+	// QR-code payment (alipay.trade.precreate, 当面付): return the qr_code string so the
+	// frontend renders the QR itself, symmetric to WeChat Native's code_url.
+	if r.PaymentEnv == PaymentEnvAlipayQr {
+		aliRsp, err := pp.Client.TradePrecreate(context.Background(), bm)
+		if err != nil {
+			return nil, err
+		}
+		if aliRsp.Response == nil || aliRsp.Response.QrCode == "" {
+			return nil, fmt.Errorf("alipay precreate failed: %+v", aliRsp.Response)
+		}
+		payResp := &PayResp{
+			PayUrl:  aliRsp.Response.QrCode,
+			OrderId: r.PaymentName,
+		}
+		return payResp, nil
+	}
+
+	// Default: PC web page payment (alipay.trade.page.pay)
 	payUrl, err := pp.Client.TradePagePay(context.Background(), bm)
 	if err != nil {
 		return nil, err

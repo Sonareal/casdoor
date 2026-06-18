@@ -43,6 +43,12 @@ type Invitation struct {
 	DefaultCode string `xorm:"varchar(100)" json:"defaultCode"`
 
 	State string `xorm:"varchar(100)" json:"state"`
+
+	// Referral-commission fields (feiyu): for per-user personal referral codes.
+	Inviter         string  `xorm:"varchar(100) index" json:"inviter"`        // owner/name of the user this personal code belongs to
+	CommissionRate  float64 `xorm:"default -1" json:"commissionRate"`         // per-user override rate; -1 = unset (falls back to auto/group/default); 0 = explicit 0%
+	Tier            string  `xorm:"varchar(100)" json:"tier"`                 // group/tier label for group-based rate
+	PaidInviteCount int     `json:"paidInviteCount"`                          // number of invitees who produced a first-order commission (auto-upgrade basis)
 }
 
 func GetInvitationCount(owner, field, value string) (int64, error) {

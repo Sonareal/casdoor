@@ -248,21 +248,35 @@ type User struct {
 }
 
 type Userinfo struct {
-	Sub           string   `json:"sub"`
-	Iss           string   `json:"iss"`
-	Aud           string   `json:"aud"`
-	Name          string   `json:"preferred_username,omitempty"`
-	DisplayName   string   `json:"name,omitempty"`
-	Email         string   `json:"email,omitempty"`
-	EmailVerified bool     `json:"email_verified,omitempty"`
-	Avatar        string   `json:"picture,omitempty"`
-	Address       string   `json:"address,omitempty"`
-	Phone         string   `json:"phone,omitempty"`
-	RealName      string   `json:"real_name,omitempty"`
-	IsVerified    bool     `json:"is_verified,omitempty"`
-	Groups        []string `json:"groups,omitempty"`
-	Roles         []string `json:"roles,omitempty"`
-	Permissions   []string `json:"permissions,omitempty"`
+	Sub           string             `json:"sub"`
+	Iss           string             `json:"iss"`
+	Aud           string             `json:"aud"`
+	Name          string             `json:"preferred_username,omitempty"`
+	DisplayName   string             `json:"name,omitempty"`
+	Email         string             `json:"email,omitempty"`
+	EmailVerified bool               `json:"email_verified,omitempty"`
+	Avatar        string             `json:"picture,omitempty"`
+	Address       string             `json:"address,omitempty"`
+	Phone         string             `json:"phone,omitempty"`
+	RealName      string             `json:"real_name,omitempty"`
+	IsVerified    bool               `json:"is_verified,omitempty"`
+	Groups        []string           `json:"groups,omitempty"`
+	Roles         []string           `json:"roles,omitempty"`
+	Permissions   []string           `json:"permissions,omitempty"`
+	Subscriptions []SubscriptionInfo `json:"subscriptions,omitempty"`
+	CreatedTime   string             `json:"createdTime,omitempty"`
+	Balance       float64            `json:"balance,omitempty"`
+	Currency      string             `json:"currency,omitempty"`
+}
+
+// SubscriptionInfo is a lightweight view of an active subscription, exposed in userinfo
+// so a client can tell the billing tier (e.g. monthly vs yearly) and the expiry date.
+type SubscriptionInfo struct {
+	Plan      string `json:"plan"`
+	Period    string `json:"period"`
+	StartTime string `json:"startTime"`
+	EndTime   string `json:"endTime"`
+	State     string `json:"state"`
 }
 
 type ManagedAccount struct {
@@ -1219,6 +1233,9 @@ func GetUserInfo(user *User, scope string, aud string, host string) (*Userinfo, 
 		resp.DisplayName = user.DisplayName
 		resp.Avatar = user.Avatar
 		resp.Groups = user.Groups
+		resp.CreatedTime = user.CreatedTime
+		resp.Balance = user.Balance
+		resp.Currency = user.BalanceCurrency
 
 		err := ExtendUserWithRolesAndPermissions(user)
 		if err != nil {
@@ -1233,6 +1250,24 @@ func GetUserInfo(user *User, scope string, aud string, host string) (*Userinfo, 
 		resp.Permissions = []string{}
 		for _, permission := range user.Permissions {
 			resp.Permissions = append(resp.Permissions, permission.Name)
+		}
+
+		// Active subscriptions, so the client can distinguish the billing tier
+		// (monthly/yearly/lifetime) and read the expiry date in one userinfo call.
+		resp.Subscriptions = []SubscriptionInfo{}
+		if subs, subErr := GetSubscriptionsByUser(user.Owner, user.Name); subErr == nil {
+			for _, sub := range subs {
+				if sub.State != SubStateActive {
+					continue
+				}
+				resp.Subscriptions = append(resp.Subscriptions, SubscriptionInfo{
+					Plan:      sub.Plan,
+					Period:    sub.Period,
+					StartTime: sub.StartTime,
+					EndTime:   sub.EndTime,
+					State:     string(sub.State),
+				})
+			}
 		}
 	}
 
@@ -1309,6 +1344,12 @@ func ExtendUserWithRolesAndPermissions(user *User) (err error) {
 		return
 	}
 
+	// Reconcile membership roles from the user's subscriptions BEFORE resolving roles, so the
+	// stored role membership (visible in the admin UI) stays consistent with paid membership and
+	// is included in the resolved token/userinfo roles. Best-effort: subscription lookup errors
+	// never block role resolution.
+	syncUserMembershipRoles(user)
+
 	user.Permissions, user.Roles, err = getPermissionsAndRolesByUser(user.GetId())
 	if err != nil {
 		return err
@@ -1319,6 +1360,57 @@ func ExtendUserWithRolesAndPermissions(user *User) (err error) {
 	}
 
 	return
+}
+
+// syncUserMembershipRoles reconciles a user's stored role membership with their subscriptions:
+// the role configured on a plan is granted while the user has an ACTIVE subscription for it and
+// removed once no active subscription grants it. This keeps membership visible in the admin UI and
+// auto-expiring, without a separate cron. Best-effort: errors never break role resolution.
+func syncUserMembershipRoles(user *User) {
+	subscriptions, err := GetSubscriptionsByUser(user.Owner, user.Name)
+	if err != nil {
+		return
+	}
+
+	userId := user.GetId()
+	activeRoles := map[string]bool{}
+	subRoles := map[string]bool{}
+	for _, sub := range subscriptions {
+		if sub.Plan == "" {
+			continue
+		}
+		plan, err := GetPlan(util.GetId(sub.Owner, sub.Plan))
+		if err != nil || plan == nil || plan.Role == "" {
+			continue
+		}
+		roleId := util.GetId(plan.Owner, plan.Role)
+		subRoles[roleId] = true
+		if sub.State == SubStateActive {
+			activeRoles[roleId] = true
+		}
+	}
+
+	// Only reconcile roles that this user's plans reference, so unrelated RBAC roles are untouched.
+	for roleId := range subRoles {
+		role, err := GetRole(roleId)
+		if err != nil || role == nil {
+			continue
+		}
+		isMember := false
+		for _, u := range role.Users {
+			if u == userId {
+				isMember = true
+				break
+			}
+		}
+		if activeRoles[roleId] && !isMember {
+			role.Users = append(role.Users, userId)
+			_, _ = UpdateRole(roleId, role, true, "en")
+		} else if !activeRoles[roleId] && isMember {
+			role.Users = util.DeleteVal(role.Users, userId)
+			_, _ = UpdateRole(roleId, role, true, "en")
+		}
+	}
 }
 
 func DeleteGroupForUser(user string, group string) (bool, error) {

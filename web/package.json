@@ -40,6 +40,7 @@
     "file-saver": "^2.0.5",
     "i18n-iso-countries": "^7.0.0",
     "i18next": "^19.8.9",
+    "jszip": "^3.10.1",
     "jwt-decode": "^4.0.0",
     "libphonenumber-js": "^1.10.19",
     "moment": "^2.29.1",
@@ -55,10 +56,10 @@
     "react-highlight-words": "^0.18.0",
     "react-i18next": "^11.8.7",
     "react-metamask-avatar": "^1.2.1",
-    "reactflow": "^11.11.4",
     "react-router-dom": "^5.3.3",
     "react-scripts": "5.0.1",
     "react-social-login-buttons": "^3.4.0",
+    "reactflow": "^11.11.4",
     "xlsx": "^0.18.5"
   },
   "scripts": {

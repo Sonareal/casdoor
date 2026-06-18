@@ -426,6 +426,12 @@ func NotifyPayment(body []byte, owner string, paymentName string, lang string) (
 				logs.Warning(fmt.Sprintf("NotifyPayment: failed to record coupon usage for order %s: %v", order.Name, err))
 			}
 		}
+
+		// Referral commission (feiyu): credit the inviter on the payer's first order.
+		// Non-fatal: a commission failure must not break payment processing.
+		if cErr := GrantReferralCommission(payment, order, lang); cErr != nil {
+			logs.Warning(fmt.Sprintf("NotifyPayment: failed to grant referral commission for payment %s: %v", payment.Name, cErr))
+		}
 	}
 	return payment, nil
 }

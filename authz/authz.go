@@ -88,6 +88,13 @@ p, *, *, POST, /api/pay-order, *, *
 p, *, *, POST, /api/validate-coupon, *, *
 p, *, *, POST, /api/unlink, *, *
 p, *, *, POST, /api/set-password, *, *
+p, *, *, GET, /api/get-my-referral-code, *, *
+p, *, *, GET, /api/get-my-referral-stats, *, *
+p, *, *, GET, /api/get-my-invitees, *, *
+p, *, *, GET, /api/get-my-commissions, *, *
+p, *, *, POST, /api/apply-withdrawal, *, *
+p, *, *, GET, /api/get-my-withdrawals, *, *
+p, *, *, POST, /api/redeem-gift-card, *, *
 p, *, *, POST, /api/send-verification-code, *, *
 p, *, *, GET, /api/get-captcha, *, *
 p, *, *, POST, /api/verify-captcha, *, *
