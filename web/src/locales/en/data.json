@@ -1823,6 +1823,19 @@
     "Used by": "Used by",
     "QR code": "QR code",
     "Disable": "Disable",
-    "Disable this gift card": "Disable this gift card"
+    "Disable this gift card": "Disable this gift card",
+    "Copy": "Copy",
+    "Copied": "Copied",
+    "Download PNG": "Download PNG",
+    "Selected": "Selected",
+    "Copy codes": "Copy codes",
+    "Download QR (zip)": "Download QR (zip)",
+    "Disable selected": "Disable selected",
+    "Delete selected": "Delete selected",
+    "By batch": "By batch",
+    "Select a batch": "Select a batch",
+    "Disable this batch": "Disable this batch",
+    "Delete this batch": "Delete this batch",
+    "Nothing selected": "Nothing selected"
   }
 }

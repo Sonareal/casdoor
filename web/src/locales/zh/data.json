@@ -1823,6 +1823,19 @@
     "Used by": "已被使用",
     "QR code": "二维码",
     "Disable": "停用",
-    "Disable this gift card": "停用该礼品卡"
+    "Disable this gift card": "停用该礼品卡",
+    "Copy": "复制",
+    "Copied": "已复制",
+    "Download PNG": "下载 PNG",
+    "Selected": "已选",
+    "Copy codes": "复制激活码",
+    "Download QR (zip)": "二维码打包下载",
+    "Disable selected": "停用所选",
+    "Delete selected": "删除所选",
+    "By batch": "按批次",
+    "Select a batch": "选择批次",
+    "Disable this batch": "停用该批次",
+    "Delete this batch": "删除该批次",
+    "Nothing selected": "未选择任何项"
   }
 }

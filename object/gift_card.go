@@ -31,7 +31,7 @@ const (
 	GiftCardStateDisabled = "Disabled"
 
 	giftCardAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	giftCardCodeLen  = 32
+	giftCardCodeLen  = 16
 )
 
 // GiftCard is a redeemable code that grants a subscription (tied to a Plan) without payment.
@@ -198,6 +198,35 @@ func DeleteGiftCard(gc *GiftCard) (bool, error) {
 		return false, err
 	}
 	return affected != 0, nil
+}
+
+// BatchDeleteGiftCards deletes cards by explicit names, or (if names empty) the whole batch.
+func BatchDeleteGiftCards(owner string, names []string, batch string) (int64, error) {
+	if owner == "" {
+		return 0, errors.New("owner is required")
+	}
+	if len(names) > 0 {
+		return ormer.Engine.In("name", names).Where("owner = ?", owner).Delete(&GiftCard{})
+	}
+	if batch != "" {
+		return ormer.Engine.Where("owner = ? and batch = ?", owner, batch).Delete(&GiftCard{})
+	}
+	return 0, errors.New("names or batch is required")
+}
+
+// BatchDisableGiftCards sets Unused cards to Disabled, by explicit names or whole batch.
+func BatchDisableGiftCards(owner string, names []string, batch string) (int64, error) {
+	if owner == "" {
+		return 0, errors.New("owner is required")
+	}
+	upd := &GiftCard{State: GiftCardStateDisabled}
+	if len(names) > 0 {
+		return ormer.Engine.In("name", names).Where("owner = ? and state = ?", owner, GiftCardStateUnused).Cols("state").Update(upd)
+	}
+	if batch != "" {
+		return ormer.Engine.Where("owner = ? and batch = ? and state = ?", owner, batch, GiftCardStateUnused).Cols("state").Update(upd)
+	}
+	return 0, errors.New("names or batch is required")
 }
 
 // RedeemGiftCard atomically claims an unused card for the user and grants the bound subscription (no payment).

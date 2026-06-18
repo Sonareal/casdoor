@@ -51,8 +51,8 @@ func TestGiftCardRedeem(t *testing.T) {
 		t.Fatalf("generate: err=%v n=%d", err, len(cards))
 	}
 	code := cards[0].Code
-	if len(code) != 32 {
-		t.Fatalf("code length: want 32, got %d (%s)", len(code), code)
+	if len(code) != 16 {
+		t.Fatalf("code length: want 16, got %d (%s)", len(code), code)
 	}
 	for _, ch := range code {
 		if !((ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9')) {

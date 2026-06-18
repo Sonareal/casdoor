@@ -139,6 +139,46 @@ func (c *ApiController) DeleteGiftCard() {
 	c.ServeJSON()
 }
 
+// BatchGiftCards
+// @Title BatchGiftCards
+// @Tag GiftCard API
+// @Description (admin) batch delete/disable gift cards by names or by batch
+// @Success 200 {object} controllers.Response The Response object
+// @router /batch-gift-cards [post]
+func (c *ApiController) BatchGiftCards() {
+	if !c.IsAdmin() {
+		c.ResponseError(c.T("auth:Unauthorized operation"))
+		return
+	}
+	var form struct {
+		Owner  string   `json:"owner"`
+		Action string   `json:"action"` // "delete" | "disable"
+		Names  []string `json:"names"`
+		Batch  string   `json:"batch"`
+	}
+	if err := json.Unmarshal(c.Ctx.Input.RequestBody, &form); err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+
+	var affected int64
+	var err error
+	switch form.Action {
+	case "delete":
+		affected, err = object.BatchDeleteGiftCards(form.Owner, form.Names, form.Batch)
+	case "disable":
+		affected, err = object.BatchDisableGiftCards(form.Owner, form.Names, form.Batch)
+	default:
+		c.ResponseError("invalid action")
+		return
+	}
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+	c.ResponseOk(affected)
+}
+
 // RedeemGiftCard
 // @Title RedeemGiftCard
 // @Tag GiftCard API

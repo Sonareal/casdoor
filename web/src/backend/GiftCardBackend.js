@@ -46,6 +46,17 @@ export function updateGiftCard(owner, name, giftCard) {
   }).then(res => res.json());
 }
 
+export function batchGiftCards(body) {
+  return fetch(`${Setting.ServerUrl}/api/batch-gift-cards`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Accept-Language": Setting.getAcceptLanguage(),
+    },
+    body: JSON.stringify(body),
+  }).then(res => res.json());
+}
+
 export function deleteGiftCard(giftCard) {
   return fetch(`${Setting.ServerUrl}/api/delete-gift-card`, {
     method: "POST",
