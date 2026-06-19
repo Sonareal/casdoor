@@ -1836,6 +1836,8 @@
     "Select a batch": "选择批次",
     "Disable this batch": "停用该批次",
     "Delete this batch": "删除该批次",
-    "Nothing selected": "未选择任何项"
+    "Nothing selected": "未选择任何项",
+    "Used time": "使用时间",
+    "Expires at": "到期时间"
   }
 }

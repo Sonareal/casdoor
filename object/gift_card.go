@@ -50,6 +50,7 @@ type GiftCard struct {
 	UsedBy       string `xorm:"varchar(100)" json:"usedBy"`
 	UsedTime     string `xorm:"varchar(100)" json:"usedTime"`
 	Subscription string `xorm:"varchar(100)" json:"subscription"` // created subscription name
+	SubEndTime   string `xorm:"varchar(100)" json:"subEndTime"`   // granted subscription end time (set at redeem)
 	ExpireTime   string `xorm:"varchar(100)" json:"expireTime"`   // empty = permanent (unredeemed)
 }
 
@@ -290,6 +291,6 @@ func RedeemGiftCard(owner, code, userName, lang string) (*Subscription, error) {
 	}
 
 	// 3) link the subscription back to the card
-	_, _ = ormer.Engine.ID(core.PK{gc.Owner, gc.Name}).Cols("subscription").Update(&GiftCard{Subscription: sub.Name})
+	_, _ = ormer.Engine.ID(core.PK{gc.Owner, gc.Name}).Cols("subscription", "sub_end_time").Update(&GiftCard{Subscription: sub.Name, SubEndTime: sub.EndTime})
 	return sub, nil
 }

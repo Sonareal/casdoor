@@ -74,6 +74,9 @@ func TestGiftCardRedeem(t *testing.T) {
 	if gc.State != GiftCardStateUsed || gc.UsedBy != "u1" || gc.Subscription != sub.Name {
 		t.Fatalf("card not properly used: %+v", gc)
 	}
+	if gc.UsedTime == "" || gc.SubEndTime != sub.EndTime {
+		t.Fatalf("used time / sub end time not recorded: %+v", gc)
+	}
 
 	// double redeem must fail (one-time)
 	if _, err := RedeemGiftCard(gcOrg, code, "u1", "en"); err == nil {

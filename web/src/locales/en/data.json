@@ -1836,6 +1836,8 @@
     "Select a batch": "Select a batch",
     "Disable this batch": "Disable this batch",
     "Delete this batch": "Delete this batch",
-    "Nothing selected": "Nothing selected"
+    "Nothing selected": "Nothing selected",
+    "Used time": "Used time",
+    "Expires at": "Expires at"
   }
 }

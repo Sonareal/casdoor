@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import React from "react";
+import {Link} from "react-router-dom";
 import {Button, Input, InputNumber, Modal, Popconfirm, Select, Space, Table} from "antd";
 import {QRCodeCanvas} from "qrcode.react";
 import copy from "copy-to-clipboard";
@@ -255,6 +256,36 @@ class GiftCardListPage extends BaseListPage {
         key: "usedBy",
         width: "150px",
         ...this.getColumnSearchProps("usedBy"),
+        render: (text, record, index) => {
+          if (!text) {
+            return null;
+          }
+          return (
+            <Link to={`/users/${record.owner}/${text}`}>
+              {text}
+            </Link>
+          );
+        },
+      },
+      {
+        title: i18next.t("gift:Used time"),
+        dataIndex: "usedTime",
+        key: "usedTime",
+        width: "160px",
+        sorter: true,
+        render: (text, record, index) => {
+          return text ? Setting.getFormattedDate(text) : null;
+        },
+      },
+      {
+        title: i18next.t("gift:Expires at"),
+        dataIndex: "subEndTime",
+        key: "subEndTime",
+        width: "160px",
+        sorter: true,
+        render: (text, record, index) => {
+          return text ? Setting.getFormattedDate(text) : null;
+        },
       },
       {
         title: i18next.t("general:Created time"),
