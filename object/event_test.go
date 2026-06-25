@@ -80,3 +80,30 @@ func TestEventTrackingAndStats(t *testing.T) {
 		t.Fatalf("totalToday should be >= 6, got %v", stats["totalToday"])
 	}
 }
+
+func TestEventRetention(t *testing.T) {
+	createDatabase = false
+	InitConfig()
+	owner := "test-evt-ret"
+	ormer.Engine.Where("owner = ?", owner).Delete(&Event{})
+
+	// one very old event, one recent
+	ormer.Engine.Insert(&Event{Owner: owner, Name: "evt_old", Event: "x", Source: EventSourceServer, CreatedTime: "2020-01-01T00:00:00+08:00"})
+	if _, err := AddEvents([]*Event{{Owner: owner, Event: "y", Source: EventSourceServer}}); err != nil {
+		t.Fatalf("add recent: %v", err)
+	}
+
+	cutoff := daysAgoDate(90)
+	deleted, err := DeleteEventsBefore(cutoff)
+	if err != nil {
+		t.Fatalf("delete before: %v", err)
+	}
+	if deleted < 1 {
+		t.Fatalf("expected to delete the old event, deleted=%d", deleted)
+	}
+	cnt, _ := ormer.Engine.Where("owner = ?", owner).Count(&Event{})
+	if cnt != 1 {
+		t.Fatalf("expected 1 recent event to remain, got %d", cnt)
+	}
+	ormer.Engine.Where("owner = ?", owner).Delete(&Event{})
+}

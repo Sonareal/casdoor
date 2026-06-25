@@ -17,10 +17,12 @@ package object
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/beego/beego/v2/core/logs"
+	"github.com/casdoor/casdoor/conf"
 	"github.com/casdoor/casdoor/util"
 )
 
@@ -97,6 +99,45 @@ func TrackServerEvent(owner, event, user, application string, props map[string]i
 	}
 	if _, err := AddEvents([]*Event{e}); err != nil {
 		logs.Warning(fmt.Sprintf("TrackServerEvent(%s/%s) failed: %v", owner, event, err))
+	}
+}
+
+// DeleteEventsBefore removes events with created_time older than the given date (YYYY-MM-DD).
+func DeleteEventsBefore(date string) (int64, error) {
+	return ormer.Engine.Where("created_time < ?", date).Delete(&Event{})
+}
+
+func eventRetentionDays() int {
+	s := conf.GetConfigString("eventRetentionDays")
+	if s == "" {
+		return 90
+	}
+	if v, err := strconv.Atoi(s); err == nil {
+		return v
+	}
+	return 90
+}
+
+// StartEventRetention runs a daily cleanup that deletes events older than `eventRetentionDays`
+// (default 90; set <= 0 in conf to disable). Best-effort; safe to run as a background goroutine.
+func StartEventRetention() {
+	run := func() {
+		days := eventRetentionDays()
+		if days <= 0 {
+			return
+		}
+		cutoff := daysAgoDate(days)
+		if affected, err := DeleteEventsBefore(cutoff); err != nil {
+			logs.Warning(fmt.Sprintf("event retention cleanup failed: %v", err))
+		} else if affected > 0 {
+			logs.Info(fmt.Sprintf("event retention: deleted %d events older than %s", affected, cutoff))
+		}
+	}
+	run() // once at startup
+	ticker := time.NewTicker(24 * time.Hour)
+	defer ticker.Stop()
+	for range ticker.C {
+		run()
 	}
 }
 

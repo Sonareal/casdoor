@@ -141,6 +141,7 @@ func main() {
 	go ldap.StartLdapServer()
 	go radius.StartRadiusServer()
 	go object.ClearThroughputPerSecond()
+	go object.StartEventRetention()
 
 	// Start webhook delivery worker
 	object.StartWebhookDeliveryWorker()
