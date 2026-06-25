@@ -165,6 +165,7 @@ func ApplyWithdrawal(w *Withdrawal, minAmount float64, lang string) (bool, error
 		_ = withdrawalTransaction(w, w.Amount, "rollback", lang)
 		return false, err
 	}
+	TrackServerEvent(w.Owner, "withdrawal_requested", w.User, "", map[string]interface{}{"amount": w.Amount, "channel": w.Channel})
 	return affected != 0, nil
 }
 
@@ -228,6 +229,7 @@ func MarkWithdrawalPaid(id, action, externalTransferNo, failReason, operator, la
 		}
 		w.State = WithdrawalStatePaid
 		w.ExternalTransferNo = externalTransferNo
+		TrackServerEvent(w.Owner, "withdrawal_paid", w.User, "", map[string]interface{}{"amount": w.Amount, "channel": w.Channel})
 	case "fail":
 		w.State = WithdrawalStateFailed
 		w.FailReason = failReason

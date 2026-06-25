@@ -129,6 +129,9 @@ func InitAPI() {
 	web.Router("/api/delete-gift-card", &controllers.ApiController{}, "POST:DeleteGiftCard")
 	web.Router("/api/batch-gift-cards", &controllers.ApiController{}, "POST:BatchGiftCards")
 	web.Router("/api/redeem-gift-card", &controllers.ApiController{}, "POST:RedeemGiftCard")
+	web.Router("/api/track", &controllers.ApiController{}, "POST:Track")
+	web.Router("/api/get-events", &controllers.ApiController{}, "GET:GetEvents")
+	web.Router("/api/get-event-stats", &controllers.ApiController{}, "GET:GetEventStats")
 
 	web.Router("/api/get-applications", &controllers.ApiController{}, "GET:GetApplications")
 	web.Router("/api/get-application", &controllers.ApiController{}, "GET:GetApplication")

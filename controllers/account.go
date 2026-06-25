@@ -345,6 +345,15 @@ func (c *ApiController) Signup() {
 	userId := user.GetId()
 	util.LogInfo(c.Ctx, "API: [%s] is signed up as new user", userId)
 
+	// analytics (best-effort)
+	signupMethod := "username"
+	if authForm.Phone != "" {
+		signupMethod = "phone"
+	} else if authForm.Email != "" {
+		signupMethod = "email"
+	}
+	object.TrackServerEvent(user.Owner, "user_signup", user.Name, application.Name, map[string]interface{}{"signupMethod": signupMethod, "hasInvitation": invitationName != ""})
+
 	// Check if this is an OAuth flow and automatically generate code
 	clientId := c.Ctx.Input.Query("clientId")
 	responseType := c.Ctx.Input.Query("responseType")

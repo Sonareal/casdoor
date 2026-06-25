@@ -292,5 +292,9 @@ func RedeemGiftCard(owner, code, userName, lang string) (*Subscription, error) {
 
 	// 3) link the subscription back to the card
 	_, _ = ormer.Engine.ID(core.PK{gc.Owner, gc.Name}).Cols("subscription", "sub_end_time").Update(&GiftCard{Subscription: sub.Name, SubEndTime: sub.EndTime})
+
+	// analytics (best-effort)
+	TrackServerEvent(owner, "gift_card_redeemed", userName, "", map[string]interface{}{"plan": gc.Plan, "period": plan.Period, "batch": gc.Batch})
+	TrackServerEvent(owner, "subscription_activated", userName, "", map[string]interface{}{"plan": gc.Plan, "period": plan.Period, "source": "giftcard"})
 	return sub, nil
 }

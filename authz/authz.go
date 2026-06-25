@@ -95,6 +95,7 @@ p, *, *, GET, /api/get-my-commissions, *, *
 p, *, *, POST, /api/apply-withdrawal, *, *
 p, *, *, GET, /api/get-my-withdrawals, *, *
 p, *, *, POST, /api/redeem-gift-card, *, *
+p, *, *, POST, /api/track, *, *
 p, *, *, POST, /api/send-verification-code, *, *
 p, *, *, GET, /api/get-captcha, *, *
 p, *, *, POST, /api/verify-captcha, *, *

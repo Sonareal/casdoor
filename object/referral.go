@@ -357,5 +357,8 @@ func GrantReferralCommission(payment *Payment, order *Order, lang string) error 
 		refInv.UpdatedTime = now
 		_, _ = ormer.Engine.ID(core.PK{refInv.Owner, refInv.Name}).Cols("paid_invite_count", "updated_time").Update(refInv)
 	}
+
+	// analytics (best-effort)
+	TrackServerEvent(payment.Owner, "commission_earned", referrer.Name, referrer.SignupApplication, map[string]interface{}{"amount": commission, "rate": rate, "source": source, "fromUser": payerId})
 	return nil
 }

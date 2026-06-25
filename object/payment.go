@@ -432,6 +432,10 @@ func NotifyPayment(body []byte, owner string, paymentName string, lang string) (
 		if cErr := GrantReferralCommission(payment, order, lang); cErr != nil {
 			logs.Warning(fmt.Sprintf("NotifyPayment: failed to grant referral commission for payment %s: %v", payment.Name, cErr))
 		}
+
+		// analytics (best-effort)
+		TrackServerEvent(payment.Owner, "payment_paid", payment.User, user.SignupApplication, map[string]interface{}{"amount": payment.Price, "currency": order.Currency, "provider": payment.Provider, "product": payment.ProductName})
+		TrackServerEvent(payment.Owner, "subscription_activated", payment.User, user.SignupApplication, map[string]interface{}{"product": payment.ProductName, "source": "payment"})
 	}
 	return payment, nil
 }
