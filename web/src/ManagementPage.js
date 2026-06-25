@@ -45,6 +45,8 @@ import WithdrawalListPage from "./WithdrawalListPage";
 import ReferralPolicyPage from "./ReferralPolicyPage";
 import ReferralRatePage from "./ReferralRatePage";
 import GiftCardListPage from "./GiftCardListPage";
+import AnalyticsPage from "./AnalyticsPage";
+import EventListPage from "./EventListPage";
 import ApplicationListPage from "./ApplicationListPage";
 import ApplicationEditPage from "./ApplicationEditPage";
 import ProviderListPage from "./ProviderListPage";
@@ -138,6 +140,7 @@ function getMenuParentKey(uri) {
   if (uri.includes("/roles") || uri.includes("/permissions") || uri.includes("/models") || uri.includes("/adapters") || uri.includes("/enforcers")) {return "/auth";}
   if (uri.includes("/records") || uri.includes("/tokens") || uri.includes("/sessions") || uri.includes("/verifications")) {return "/logs";}
   if (uri.includes("/product-store") || uri.includes("/products") || uri.includes("/coupons") || uri.includes("/orders") || uri.includes("/payments") || uri.includes("/plans") || uri.includes("/pricings") || uri.includes("/subscriptions") || uri.includes("/gift-cards") || uri.includes("/transactions") || uri.includes("/cart")) {return "/business";}
+  if (uri.includes("/analytics") || uri.includes("/events")) {return "/analytics-group";}
   if (uri.includes("/sysinfo") || uri.includes("/forms") || uri.includes("/syncers") || uri.includes("/webhooks") || uri.includes("/webhook-events") || uri.includes("/tickets")) {return "/admin";}
   return null;
 }
@@ -426,6 +429,11 @@ function ManagementPage(props) {
       Setting.getItem(<Link to="/transactions">{i18next.t("general:Transactions")}</Link>, "/transactions"),
     ]));
 
+    res.push(Setting.getItem(<Link style={{color: textColor}} to="/analytics">{i18next.t("analytics:Analytics")}</Link>, "/analytics-group", <BarsOutlined />, [
+      Setting.getItem(<Link to="/analytics">{i18next.t("analytics:Dashboard")}</Link>, "/analytics"),
+      Setting.getItem(<Link to="/events">{i18next.t("analytics:Events")}</Link>, "/events"),
+    ]));
+
     if (Setting.isAdminUser(props.account)) {
       res.push(Setting.getItem(<Link style={{color: textColor}} to="/sysinfo">{i18next.t("general:Admin")}</Link>, "/admin", <SettingOutlined />, [
         Setting.getItem(<Link to="/sysinfo">{i18next.t("general:System Info")}</Link>, "/sysinfo"),
@@ -597,6 +605,8 @@ function ManagementPage(props) {
         <Route exact path="/subscriptions" render={(props) => renderLoginIfNotLoggedIn(<SubscriptionListPage account={account} {...props} />)} />
         <Route exact path="/subscriptions/:organizationName/:subscriptionName" render={(props) => renderLoginIfNotLoggedIn(<SubscriptionEditPage account={account} {...props} />)} />
         <Route exact path="/gift-cards" render={(props) => renderLoginIfNotLoggedIn(<GiftCardListPage account={account} {...props} />)} />
+        <Route exact path="/analytics" render={(props) => renderLoginIfNotLoggedIn(<AnalyticsPage account={account} {...props} />)} />
+        <Route exact path="/events" render={(props) => renderLoginIfNotLoggedIn(<EventListPage account={account} {...props} />)} />
         <Route exact path="/sysinfo" render={(props) => renderLoginIfNotLoggedIn(<SystemInfo account={account} {...props} />)} />
         <Route exact path="/forms" render={(props) => renderLoginIfNotLoggedIn(<FormListPage account={account} {...props} />)} />
         <Route exact path="/forms/:formName" render={(props) => renderLoginIfNotLoggedIn(<FormEditPage account={account} {...props} />)} />

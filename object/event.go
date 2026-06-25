@@ -125,9 +125,9 @@ func GetEventStats(owner string, days int) (map[string]interface{}, error) {
 	res := map[string]interface{}{}
 
 	type row struct {
-		K string  `xorm:"k"`
-		C int64   `xorm:"c"`
-		U int64   `xorm:"u"`
+		K string `xorm:"k" json:"key"`
+		C int64  `xorm:"c" json:"count"`
+		U int64  `xorm:"u" json:"users"`
 	}
 
 	ownerCond := ""

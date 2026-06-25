@@ -1839,5 +1839,30 @@
     "Nothing selected": "未选择任何项",
     "Used time": "使用时间",
     "Expires at": "到期时间"
+  },
+  "analytics": {
+    "Analytics": "埋点",
+    "Dashboard": "看板",
+    "Events": "事件流",
+    "Event": "事件",
+    "Source": "来源",
+    "Platform": "平台",
+    "Properties": "属性",
+    "Users": "用户数",
+    "Count": "次数",
+    "Date": "日期",
+    "Top events": "热门事件",
+    "Daily trend": "每日趋势",
+    "Conversion funnel": "转化漏斗",
+    "Events today": "今日事件",
+    "Active users today": "今日活跃用户",
+    "Lookback": "时间范围",
+    "Lookback days": "统计天数",
+    "users": "用户",
+    "events": "次",
+    "invite_share": "邀请分享",
+    "user_signup": "注册",
+    "subscription_activated": "订阅开通",
+    "commission_earned": "返佣入账"
   }
 }

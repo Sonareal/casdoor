@@ -1839,5 +1839,30 @@
     "Nothing selected": "Nothing selected",
     "Used time": "Used time",
     "Expires at": "Expires at"
+  },
+  "analytics": {
+    "Analytics": "Analytics",
+    "Dashboard": "Dashboard",
+    "Events": "Events",
+    "Event": "Event",
+    "Source": "Source",
+    "Platform": "Platform",
+    "Properties": "Properties",
+    "Users": "Users",
+    "Count": "Count",
+    "Date": "Date",
+    "Top events": "Top events",
+    "Daily trend": "Daily trend",
+    "Conversion funnel": "Conversion funnel",
+    "Events today": "Events today",
+    "Active users today": "Active users today",
+    "Lookback": "Lookback",
+    "Lookback days": "Lookback days",
+    "users": "users",
+    "events": "events",
+    "invite_share": "Invite share",
+    "user_signup": "Sign up",
+    "subscription_activated": "Subscription activated",
+    "commission_earned": "Commission earned"
   }
 }
