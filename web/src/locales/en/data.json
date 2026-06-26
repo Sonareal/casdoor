@@ -1863,6 +1863,20 @@
     "invite_share": "Invite share",
     "user_signup": "Sign up",
     "subscription_activated": "Subscription activated",
-    "commission_earned": "Commission earned"
+    "commission_earned": "Commission earned",
+    "Active users": "Active users",
+    "New users": "New users",
+    "Subscriptions": "Subscriptions",
+    "Gift redeems": "Gift redeems",
+    "Payments": "Payments",
+    "Revenue": "Revenue",
+    "Commission paid": "Commission paid",
+    "Withdrawals": "Withdrawals",
+    "Total events": "Total events",
+    "By platform": "By platform",
+    "By source": "By source",
+    "Organization": "Organization",
+    "Step rate": "Step rate",
+    "No data": "No data"
   }
 }

@@ -159,66 +159,133 @@ func GetPaginationEvents(owner string, offset, limit int, field, value, sortFiel
 
 // GetEventStats returns summary analytics for the last `days` days:
 // daily event counts, top events, DAU today, and a fixed conversion funnel.
+// StatRow is a generic {key,count,users} aggregation row.
+type StatRow struct {
+	Key   string `xorm:"k" json:"key"`
+	Count int64  `xorm:"c" json:"count"`
+	Users int64  `xorm:"u" json:"users"`
+}
+
+func eventOwnerClause(owner string) (string, []interface{}) {
+	if owner == "" {
+		return "", nil
+	}
+	return "owner = ? AND ", []interface{}{owner}
+}
+
+// eventGroupBy aggregates count/users grouped by an expression over the last `days`.
+func eventGroupBy(owner, groupExpr, orderBy string, days, limit int) ([]StatRow, error) {
+	oc, args := eventOwnerClause(owner)
+	sql := fmt.Sprintf("SELECT %s AS k, count(*) AS c, count(distinct \"user\") AS u FROM event WHERE %screated_time >= ? GROUP BY %s ORDER BY %s", groupExpr, oc, groupExpr, orderBy)
+	if limit > 0 {
+		sql += fmt.Sprintf(" LIMIT %d", limit)
+	}
+	rows := []StatRow{}
+	err := ormer.Engine.SQL(sql, append(append([]interface{}{}, args...), daysAgoDate(days))...).Find(&rows)
+	return rows, err
+}
+
+// eventCountWhere returns (events, distinctUsers) matching an extra WHERE over the last `days`.
+func eventCountWhere(owner, extraWhere string, extraArgs []interface{}, days int) (int64, int64) {
+	oc, ocArgs := eventOwnerClause(owner)
+	args := append([]interface{}{}, ocArgs...)
+	args = append(args, extraArgs...)
+	args = append(args, daysAgoDate(days))
+	sql := fmt.Sprintf("SELECT count(*) AS c, count(distinct \"user\") AS u FROM event WHERE %s%screated_time >= ?", oc, extraWhere)
+	r := StatRow{}
+	_, _ = ormer.Engine.SQL(sql, args...).Get(&r)
+	return r.Count, r.Users
+}
+
+func eventCount(owner, event string, days int) int64 {
+	c, _ := eventCountWhere(owner, "event = ? AND ", []interface{}{event}, days)
+	return c
+}
+
+// sumEventAmount sums the numeric "amount" property across events of a name (DB-agnostic; parsed in Go).
+func sumEventAmount(owner, event string, days int) float64 {
+	events := []*Event{}
+	sess := ormer.Engine.Where("event = ? AND created_time >= ?", event, daysAgoDate(days))
+	if owner != "" {
+		sess = sess.And("owner = ?", owner)
+	}
+	if err := sess.Cols("properties").Find(&events); err != nil {
+		return 0
+	}
+	sum := 0.0
+	for _, e := range events {
+		if e.Properties == "" {
+			continue
+		}
+		var p map[string]interface{}
+		if json.Unmarshal([]byte(e.Properties), &p) == nil {
+			if f, ok := p["amount"].(float64); ok {
+				sum += f
+			}
+		}
+	}
+	return sum
+}
+
+// GetEventStats returns a comprehensive operations dashboard payload for the last `days` days.
 func GetEventStats(owner string, days int) (map[string]interface{}, error) {
 	if days <= 0 {
 		days = 14
 	}
-	res := map[string]interface{}{}
+	res := map[string]interface{}{"days": days}
 
-	type row struct {
-		K string `xorm:"k" json:"key"`
-		C int64  `xorm:"c" json:"count"`
-		U int64  `xorm:"u" json:"users"`
-	}
-
-	ownerCond := ""
-	args := []interface{}{}
-	if owner != "" {
-		ownerCond = "owner = ? AND "
-		args = append(args, owner)
-	}
-
-	// daily event counts (last `days`)
-	daily := []row{}
-	sql := fmt.Sprintf("SELECT substr(created_time,1,10) AS k, count(*) AS c, count(distinct \"user\") AS u FROM event WHERE %screated_time >= ? GROUP BY substr(created_time,1,10) ORDER BY k", ownerCond)
-	sinceDay := util.GetCurrentTime()[:10]
-	_ = sinceDay
-	if err := ormer.Engine.SQL(sql, append(append([]interface{}{}, args...), daysAgoDate(days))...).Find(&daily); err != nil {
+	// daily trend (ordered by date)
+	daily, err := eventGroupBy(owner, "substr(created_time,1,10)", "k", days, 0)
+	if err != nil {
 		return nil, err
 	}
 	res["daily"] = daily
 
-	// top events (last `days`)
-	top := []row{}
-	sql = fmt.Sprintf("SELECT event AS k, count(*) AS c, count(distinct \"user\") AS u FROM event WHERE %screated_time >= ? GROUP BY event ORDER BY c DESC LIMIT 20", ownerCond)
-	if err := ormer.Engine.SQL(sql, append(append([]interface{}{}, args...), daysAgoDate(days))...).Find(&top); err != nil {
-		return nil, err
+	// breakdowns
+	if top, err := eventGroupBy(owner, "event", "c DESC", days, 20); err == nil {
+		res["topEvents"] = top
 	}
-	res["topEvents"] = top
+	if byPlat, err := eventGroupBy(owner, "platform", "c DESC", days, 0); err == nil {
+		res["byPlatform"] = byPlat
+	}
+	if bySrc, err := eventGroupBy(owner, "source", "c DESC", days, 0); err == nil {
+		res["bySource"] = bySrc
+	}
 
-	// totals + DAU today
+	// today + period totals
+	oc, ocArgs := eventOwnerClause(owner)
 	today := util.GetCurrentTime()[:10]
-	var totalToday, dauToday int64
-	cntRow := row{}
-	sql = fmt.Sprintf("SELECT count(*) AS c, count(distinct \"user\") AS u FROM event WHERE %ssubstr(created_time,1,10) = ?", ownerCond)
-	if _, err := ormer.Engine.SQL(sql, append(append([]interface{}{}, args...), today)...).Get(&cntRow); err == nil {
-		totalToday = cntRow.C
-		dauToday = cntRow.U
-	}
-	res["totalToday"] = totalToday
-	res["dauToday"] = dauToday
+	tRow := StatRow{}
+	_, _ = ormer.Engine.SQL(fmt.Sprintf("SELECT count(*) AS c, count(distinct \"user\") AS u FROM event WHERE %ssubstr(created_time,1,10) = ?", oc), append(append([]interface{}{}, ocArgs...), today)...).Get(&tRow)
+	res["totalToday"] = tRow.Count
+	res["dauToday"] = tRow.Users
 
-	// conversion funnel: distinct users per step (last `days`)
+	totalEvents, activeUsers := eventCountWhere(owner, "", nil, days)
+	res["totalEvents"] = totalEvents
+	res["activeUsers"] = activeUsers
+
+	// operations metrics (period)
+	res["metrics"] = map[string]interface{}{
+		"newUsers":         eventCount(owner, "user_signup", days),
+		"payments":         eventCount(owner, "payment_paid", days),
+		"revenue":          sumEventAmount(owner, "payment_paid", days),
+		"subscriptions":    eventCount(owner, "subscription_activated", days),
+		"giftRedeems":      eventCount(owner, "gift_card_redeemed", days),
+		"commissions":      eventCount(owner, "commission_earned", days),
+		"commissionAmount": sumEventAmount(owner, "commission_earned", days),
+		"withdrawals":      eventCount(owner, "withdrawal_requested", days),
+		"activeUsers":      activeUsers,
+		"events":           totalEvents,
+	}
+
+	// conversion funnel: distinct users per step (frontend computes step-to-step rate)
 	funnelEvents := []string{"invite_share", "user_signup", "subscription_activated", "commission_earned"}
 	funnel := []map[string]interface{}{}
 	for _, ev := range funnelEvents {
-		r := row{}
-		sql = fmt.Sprintf("SELECT count(distinct \"user\") AS u, count(*) AS c FROM event WHERE %sevent = ? AND created_time >= ?", ownerCond)
-		_, _ = ormer.Engine.SQL(sql, append(append([]interface{}{}, args...), ev, daysAgoDate(days))...).Get(&r)
-		funnel = append(funnel, map[string]interface{}{"event": ev, "users": r.U, "count": r.C})
+		u, c := func() (int64, int64) { c, u := eventCountWhere(owner, "event = ? AND ", []interface{}{ev}, days); return u, c }()
+		funnel = append(funnel, map[string]interface{}{"event": ev, "users": u, "count": c})
 	}
 	res["funnel"] = funnel
-	res["days"] = days
 
 	return res, nil
 }

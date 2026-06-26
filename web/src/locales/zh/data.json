@@ -1863,6 +1863,20 @@
     "invite_share": "邀请分享",
     "user_signup": "注册",
     "subscription_activated": "订阅开通",
-    "commission_earned": "返佣入账"
+    "commission_earned": "返佣入账",
+    "Active users": "活跃用户",
+    "New users": "新增用户",
+    "Subscriptions": "订阅开通",
+    "Gift redeems": "礼品卡兑换",
+    "Payments": "支付笔数",
+    "Revenue": "支付金额",
+    "Commission paid": "返佣金额",
+    "Withdrawals": "提现笔数",
+    "Total events": "事件总数",
+    "By platform": "按平台",
+    "By source": "按来源",
+    "Organization": "组织",
+    "Step rate": "转化率",
+    "No data": "暂无数据"
   }
 }

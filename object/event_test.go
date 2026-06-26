@@ -79,6 +79,24 @@ func TestEventTrackingAndStats(t *testing.T) {
 	if stats["totalToday"].(int64) < 6 {
 		t.Fatalf("totalToday should be >= 6, got %v", stats["totalToday"])
 	}
+
+	// operations metrics
+	metrics, ok := stats["metrics"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("metrics type: %T", stats["metrics"])
+	}
+	if metrics["newUsers"].(int64) != 2 {
+		t.Fatalf("newUsers: want 2, got %v", metrics["newUsers"])
+	}
+	if metrics["subscriptions"].(int64) != 1 {
+		t.Fatalf("subscriptions: want 1, got %v", metrics["subscriptions"])
+	}
+	if stats["activeUsers"].(int64) < 1 {
+		t.Fatalf("activeUsers should be >= 1")
+	}
+	if _, ok := stats["byPlatform"].([]StatRow); !ok {
+		t.Fatalf("byPlatform type: %T", stats["byPlatform"])
+	}
 }
 
 func TestEventRetention(t *testing.T) {
