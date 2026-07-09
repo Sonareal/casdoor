@@ -105,6 +105,7 @@ type User struct {
 	IsAdmin              bool       `json:"isAdmin"`
 	IsForbidden          bool       `json:"isForbidden"`
 	IsDeleted            bool       `json:"isDeleted"`
+	DeleteScheduledTime  string     `xorm:"varchar(100)" json:"deleteScheduledTime"`
 	SignupApplication    string     `xorm:"varchar(100)" json:"signupApplication"`
 	Hash                 string     `xorm:"varchar(100)" json:"hash"`
 	PreHash              string     `xorm:"varchar(100)" json:"preHash"`

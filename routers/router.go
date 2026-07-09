@@ -132,6 +132,8 @@ func InitAPI() {
 	web.Router("/api/track", &controllers.ApiController{}, "POST:Track")
 	web.Router("/api/get-events", &controllers.ApiController{}, "GET:GetEvents")
 	web.Router("/api/get-event-stats", &controllers.ApiController{}, "GET:GetEventStats")
+	web.Router("/api/delete-my-account", &controllers.ApiController{}, "POST:DeleteMyAccount")
+	web.Router("/api/cancel-my-account-deletion", &controllers.ApiController{}, "POST:CancelMyAccountDeletion")
 
 	web.Router("/api/get-applications", &controllers.ApiController{}, "GET:GetApplications")
 	web.Router("/api/get-application", &controllers.ApiController{}, "GET:GetApplication")

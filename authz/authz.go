@@ -96,6 +96,8 @@ p, *, *, POST, /api/apply-withdrawal, *, *
 p, *, *, GET, /api/get-my-withdrawals, *, *
 p, *, *, POST, /api/redeem-gift-card, *, *
 p, *, *, POST, /api/track, *, *
+p, *, *, POST, /api/delete-my-account, *, *
+p, *, *, POST, /api/cancel-my-account-deletion, *, *
 p, *, *, POST, /api/send-verification-code, *, *
 p, *, *, GET, /api/get-captcha, *, *
 p, *, *, POST, /api/verify-captcha, *, *

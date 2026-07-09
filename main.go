@@ -142,6 +142,7 @@ func main() {
 	go radius.StartRadiusServer()
 	go object.ClearThroughputPerSecond()
 	go object.StartEventRetention()
+	go object.StartAccountDeletion()
 
 	// Start webhook delivery worker
 	object.StartWebhookDeliveryWorker()
