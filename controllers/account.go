@@ -166,6 +166,13 @@ func (c *ApiController) Signup() {
 		invitationName = invitation.Name
 	}
 
+	// Anti abusive/bot signup: require a phone or email so accounts can't be mass-created
+	// with username+password only (the per-field verification below then enforces the code).
+	if authForm.Email == "" && authForm.Phone == "" {
+		c.ResponseError("Please sign up with a phone number or email（注册需填手机号或邮箱）")
+		return
+	}
+
 	userEmailVerified := false
 
 	if application.IsSignupItemVisible("Email") && application.GetSignupItemRule("Email") != "No verification" && authForm.Email != "" {
