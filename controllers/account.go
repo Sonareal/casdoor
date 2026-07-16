@@ -241,6 +241,7 @@ func (c *ApiController) Signup() {
 		Owner:             authForm.Organization,
 		Name:              username,
 		CreatedTime:       util.GetCurrentTime(),
+		CreatedIp:         clientIp,
 		Id:                id,
 		Type:              userType,
 		Password:          authForm.Password,
