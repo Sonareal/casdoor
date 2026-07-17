@@ -476,6 +476,9 @@ func (c *ApiController) ResetEmailOrPhone() {
 	destType := c.Ctx.Request.Form.Get("type")
 	dest := c.Ctx.Request.Form.Get("dest")
 	code := c.Ctx.Request.Form.Get("code")
+	// optional: lets the caller reset the phone to a different region than the account's
+	// current country code (empty falls back to the user's / org's default).
+	countryCode := c.Ctx.Request.Form.Get("countryCode")
 
 	if util.IsStringsEmpty(destType, dest, code) {
 		c.ResponseError(c.T("general:Missing parameter"))
@@ -490,7 +493,7 @@ func (c *ApiController) ResetEmailOrPhone() {
 	}
 
 	if destType == object.VerifyTypePhone {
-		if object.HasUserByPhoneAndCountryCode(user.Owner, dest, user.GetCountryCode("")) {
+		if object.HasUserByPhoneAndCountryCode(user.Owner, dest, user.GetCountryCode(countryCode)) {
 			c.ResponseError(c.T("check:Phone already exists"))
 			return
 		}
@@ -505,8 +508,8 @@ func (c *ApiController) ResetEmailOrPhone() {
 			c.ResponseError(errMsg)
 			return
 		}
-		if checkDest, ok = util.GetE164Number(dest, user.GetCountryCode("")); !ok {
-			c.ResponseError(fmt.Sprintf(c.T("verification:Phone number is invalid in your region %s"), user.CountryCode))
+		if checkDest, ok = util.GetE164Number(dest, user.GetCountryCode(countryCode)); !ok {
+			c.ResponseError(fmt.Sprintf(c.T("verification:Phone number is invalid in your region %s"), user.GetCountryCode(countryCode)))
 			return
 		}
 	} else if destType == object.VerifyTypeEmail {
@@ -546,7 +549,10 @@ func (c *ApiController) ResetEmailOrPhone() {
 		_, err = object.UpdateUser(id, user, columns, false)
 	case object.VerifyTypePhone:
 		user.Phone = dest
-		_, err = object.SetUserField(user, "phone", user.Phone)
+		// keep the country code in sync, otherwise a phone reset across regions would
+		// store the new number under the old region and break phone login.
+		user.CountryCode = user.GetCountryCode(countryCode)
+		_, err = object.UpdateUser(user.GetId(), user, []string{"phone", "country_code"}, false)
 	default:
 		c.ResponseError(c.T("verification:Unknown type"))
 		return

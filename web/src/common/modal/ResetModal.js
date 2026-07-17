@@ -18,7 +18,8 @@ import React from "react";
 import * as Setting from "../../Setting";
 import * as UserBackend from "../../backend/UserBackend";
 import {SendCodeInput} from "../SendCodeInput";
-import {MailOutlined, PhoneOutlined} from "@ant-design/icons";
+import {CountryCodeSelect} from "../select/CountryCodeSelect";
+import {MailOutlined} from "@ant-design/icons";
 
 export const ResetModal = (props) => {
   const [visible, setVisible] = React.useState(false);
@@ -26,6 +27,9 @@ export const ResetModal = (props) => {
   const [dest, setDest] = React.useState("");
   const [code, setCode] = React.useState("");
   const {buttonText, destType, application, countryCode} = props;
+  // the region must be selectable: resetting a phone to another country used to be
+  // impossible because the account's existing country code was forced onto the new number.
+  const [selectedCountryCode, setSelectedCountryCode] = React.useState(countryCode);
 
   const showModal = () => {
     setVisible(true);
@@ -49,7 +53,7 @@ export const ResetModal = (props) => {
       return;
     }
     setConfirmLoading(true);
-    UserBackend.resetEmailOrPhone(dest, destType, code).then(res => {
+    UserBackend.resetEmailOrPhone(dest, destType, code, destType === "phone" ? selectedCountryCode : "").then(res => {
       if (res.status === "ok") {
         Setting.showMessage("success", i18next.t("user:Email/phone reset successfully"));
         window.location.reload();
@@ -85,18 +89,35 @@ export const ResetModal = (props) => {
       >
         <Col style={{margin: "0px auto 40px auto", width: 1000, height: 300}}>
           <Row style={{width: "100%", marginBottom: "20px"}}>
-            <Input
-              addonBefore={destType === "email" ? i18next.t("user:New Email") : i18next.t("user:New phone")}
-              prefix={destType === "email" ? <React.Fragment><MailOutlined />&nbsp;&nbsp;</React.Fragment> : (<React.Fragment><PhoneOutlined />&nbsp;&nbsp;{countryCode !== "" ? "+" : null}{Setting.getCountryCode(countryCode)}&nbsp;</React.Fragment>)}
-              placeholder={placeholder}
-              onChange={e => setDest(e.target.value)}
-            />
+            {destType === "phone" ? (
+              <React.Fragment>
+                <CountryCodeSelect
+                  style={{width: "30%"}}
+                  initValue={selectedCountryCode}
+                  onChange={setSelectedCountryCode}
+                  countryCodes={application?.organizationObj?.countryCodes ?? []}
+                />
+                <Input
+                  style={{width: "70%"}}
+                  placeholder={placeholder}
+                  onChange={e => setDest(e.target.value)}
+                />
+              </React.Fragment>
+            ) : (
+              <Input
+                addonBefore={i18next.t("user:New Email")}
+                prefix={<React.Fragment><MailOutlined />&nbsp;&nbsp;</React.Fragment>}
+                placeholder={placeholder}
+                onChange={e => setDest(e.target.value)}
+              />
+            )}
           </Row>
           <Row style={{width: "100%", marginBottom: "20px"}}>
             <SendCodeInput
               textBefore={i18next.t("code:Code you received")}
               onChange={setCode}
               method={"reset"}
+              countryCode={destType === "phone" ? selectedCountryCode : ""}
               onButtonClickArgs={[dest, destType, Setting.getApplicationName(application)]}
               application={application}
             />
