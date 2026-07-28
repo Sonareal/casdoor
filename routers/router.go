@@ -90,6 +90,7 @@ func InitAPI() {
 	web.Router("/api/get-users", &controllers.ApiController{}, "GET:GetUsers")
 	web.Router("/api/get-sorted-users", &controllers.ApiController{}, "GET:GetSortedUsers")
 	web.Router("/api/get-user-count", &controllers.ApiController{}, "GET:GetUserCount")
+	web.Router("/api/scan-sensitive-users", &controllers.ApiController{}, "POST:ScanSensitiveUsers")
 	web.Router("/api/get-user", &controllers.ApiController{}, "GET:GetUser")
 	web.Router("/api/update-user", &controllers.ApiController{}, "POST:UpdateUser")
 	web.Router("/api/add-user", &controllers.ApiController{}, "POST:AddUser")

@@ -69,6 +69,10 @@ func main() {
 		return
 	}
 
+	if err := util.InitSensitiveFilter(conf.GetConfigString("sensitiveWordsFile")); err != nil {
+		panic(fmt.Sprintf("Error loading the sensitive word list: %v", err))
+	}
+
 	object.InitDefaultStorageProvider()
 	object.InitLogProviders()
 	object.InitLdapAutoSynchronizer()

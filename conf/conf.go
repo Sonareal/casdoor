@@ -50,6 +50,8 @@ func GetConfigString(key string) string {
 	if res == "" {
 		if key == "staticBaseUrl" {
 			res = "https://cdn.casbin.org"
+		} else if key == "sensitiveWordsFile" {
+			res = "conf/sensitive_words.txt"
 		} else if key == "logConfig" {
 			appname, _ := web.AppConfig.String("appname")
 			res = fmt.Sprintf("{\"filename\": \"logs/%s.log\", \"maxdays\":99999, \"perm\":\"0770\"}", appname)

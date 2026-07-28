@@ -154,6 +154,24 @@ func CheckUserSignup(application *Application, organization *Organization, authF
 		}
 	}
 
+	// Reject banned words at signup so the user gets a clear message on the
+	// form field, rather than a generic failure later from AddUser.
+	// authForm.Name carries the display name here, not the username.
+	for label, value := range map[string]string{
+		"Display name": authForm.Name,
+		"First name":   authForm.FirstName,
+		"Last name":    authForm.LastName,
+		"Username":     authForm.Username,
+		"Affiliation":  authForm.Affiliation,
+	} {
+		if value == "" {
+			continue
+		}
+		if word, hit := util.ContainsSensitiveWord(value); hit {
+			return sensitiveFieldMessage(label, word, lang)
+		}
+	}
+
 	return ""
 }
 
@@ -726,6 +744,115 @@ func CheckLoginPermission(userId string, application *Application) (bool, error)
 		return false, nil
 	}
 	return true, nil
+}
+
+// sensitiveUserField is a free-text field a user can set on themselves. All of
+// them get rendered to other users somewhere, so blocking only the display name
+// just moves the abuse to the next field.
+type sensitiveUserField struct {
+	label  string // shown in the rejection message
+	column string // column name as used in "?columns=" on /api/update-user
+	get    func(user *User) string
+}
+
+var sensitiveUserFields = []sensitiveUserField{
+	{"Display name", "displayName", func(u *User) string { return u.DisplayName }},
+	{"First name", "firstName", func(u *User) string { return u.FirstName }},
+	{"Last name", "lastName", func(u *User) string { return u.LastName }},
+	{"Bio", "bio", func(u *User) string { return u.Bio }},
+	{"Title", "title", func(u *User) string { return u.Title }},
+	{"Affiliation", "affiliation", func(u *User) string { return u.Affiliation }},
+	{"Location", "location", func(u *User) string { return u.Location }},
+	{"Homepage", "homepage", func(u *User) string { return u.Homepage }},
+	{"Username", "name", func(u *User) string { return u.Name }},
+}
+
+// normalizeColumnName folds a column name so that the caller may pass either
+// the JSON spelling ("displayName", as the API receives it) or the snake_case
+// spelling ("display_name", as the controller forwards it to UpdateUser).
+func normalizeColumnName(column string) string {
+	return strings.ToLower(strings.ReplaceAll(strings.TrimSpace(column), "_", ""))
+}
+
+// IsColumnWritten reports whether an update touching the given columns will
+// actually write column. An empty slice means "all columns", per UpdateUser.
+func IsColumnWritten(columns []string, column string) bool {
+	if len(columns) == 0 {
+		return true
+	}
+
+	want := normalizeColumnName(column)
+	for _, candidate := range columns {
+		if normalizeColumnName(candidate) == want {
+			return true
+		}
+	}
+	return false
+}
+
+func sensitiveFieldMessage(label string, word string, lang string) string {
+	return fmt.Sprintf(i18n.Translate(lang, "check:The %s contains the prohibited word: %s"), label, word)
+}
+
+// CheckSensitiveUserFields rejects a user whose free-text fields contain a
+// banned word. It returns a localized message, or "" when the user is clean.
+// Use it on creation, where every field is new by definition.
+func CheckSensitiveUserFields(user *User, lang string) string {
+	if user == nil {
+		return ""
+	}
+
+	for _, field := range sensitiveUserFields {
+		value := field.get(user)
+		if value == "" {
+			continue
+		}
+		if word, hit := util.ContainsSensitiveWord(value); hit {
+			return sensitiveFieldMessage(field.label, word, lang)
+		}
+	}
+
+	return ""
+}
+
+// CheckSensitiveUserFieldsUpdate is the update-path counterpart. It only looks
+// at fields that this write actually changes, for two reasons:
+//
+//   - A user who already carries a banned word from before the filter existed
+//     must not have every unrelated write rejected — that would break internal
+//     bookkeeping such as recording the last signin time and lock them out.
+//     Pre-existing violations are handled by the offline scan instead.
+//   - A partial update ("?columns=score") must not be judged on fields it is
+//     not writing. An empty columns slice means "all columns", per UpdateUser.
+func CheckSensitiveUserFieldsUpdate(oldUser *User, user *User, columns []string, lang string) string {
+	if user == nil {
+		return ""
+	}
+	if oldUser == nil {
+		return CheckSensitiveUserFields(user, lang)
+	}
+
+	writesAll := len(columns) == 0
+	written := make(map[string]bool, len(columns))
+	for _, column := range columns {
+		written[normalizeColumnName(column)] = true
+	}
+
+	for _, field := range sensitiveUserFields {
+		if !writesAll && !written[normalizeColumnName(field.column)] {
+			continue
+		}
+
+		value := field.get(user)
+		if value == "" || value == field.get(oldUser) {
+			continue
+		}
+		if word, hit := util.ContainsSensitiveWord(value); hit {
+			return sensitiveFieldMessage(field.label, word, lang)
+		}
+	}
+
+	return ""
 }
 
 func CheckUsername(username string, lang string) string {

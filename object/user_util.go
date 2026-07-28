@@ -534,6 +534,13 @@ func CheckPermissionForUpdateUser(oldUser, newUser *User, isAdmin bool, allowDis
 
 	var itemsChanged []*AccountItem
 
+	// A moderation flag, not a user preference: never settable by the user
+	// themselves, whatever the organization's account items say. UpdateUser
+	// clears it server-side once a clean display name is saved.
+	if !isAdmin {
+		newUser.NeedUpdateDisplayName = oldUser.NeedUpdateDisplayName
+	}
+
 	if oldUser.Owner != newUser.Owner {
 		item := GetAccountItemByName("Organization", organization)
 		if !userVisible(isAdmin, item) {

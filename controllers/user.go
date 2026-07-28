@@ -366,6 +366,13 @@ func (c *ApiController) UpdateUser() {
 		}
 	}
 
+	// Done here rather than inside UpdateUser so the rejection is reported in
+	// the caller's language. UpdateUser keeps its own check as a backstop.
+	if msg := object.CheckSensitiveUserFieldsUpdate(oldUser, &user, columns, c.GetAcceptLanguage()); msg != "" {
+		c.ResponseError(msg)
+		return
+	}
+
 	affected, err := object.UpdateUser(id, &user, columns, isAdmin)
 	if err != nil {
 		c.ResponseError(err.Error())
@@ -975,4 +982,30 @@ func (c *ApiController) VerifyIdentification() {
 	}
 
 	c.ResponseOk(user.RealName)
+}
+
+// ScanSensitiveUsers
+// @Title ScanSensitiveUsers
+// @Tag User API
+// @Description scan existing users for prohibited words in their profile text
+// @Param   owner   query   string  false   "Organization to scan; empty scans all"
+// @Param   apply   query   string  false   "Set to true to flag the hits for a forced rename; defaults to a dry run"
+// @Success 200 {object} controllers.Response The Response object
+// @router /scan-sensitive-users [post]
+func (c *ApiController) ScanSensitiveUsers() {
+	if !c.IsGlobalAdmin() {
+		c.ResponseError(c.T("auth:Unauthorized operation"))
+		return
+	}
+
+	owner := c.Ctx.Input.Query("owner")
+	apply := c.Ctx.Input.Query("apply") == "true"
+
+	hits, err := object.ScanSensitiveUsers(owner, apply)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+
+	c.ResponseOk(hits, len(hits))
 }

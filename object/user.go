@@ -244,8 +244,12 @@ type User struct {
 	MfaItems            []*MfaItem       `xorm:"varchar(300)" json:"mfaItems"`
 	MfaRememberDeadline string           `xorm:"varchar(100)" json:"mfaRememberDeadline"`
 	NeedUpdatePassword  bool             `json:"needUpdatePassword"`
-	IpWhitelist         string           `xorm:"varchar(200)" json:"ipWhitelist"`
-	ApplicationScopes   []ConsentRecord  `xorm:"mediumtext" json:"applicationScopes"`
+	// Set by the sensitive-word scan on users whose display name predates the
+	// word list. The client is expected to force a rename before letting the
+	// user continue; the flag clears itself once a clean name is saved.
+	NeedUpdateDisplayName bool            `json:"needUpdateDisplayName"`
+	IpWhitelist           string          `xorm:"varchar(200)" json:"ipWhitelist"`
+	ApplicationScopes     []ConsentRecord `xorm:"mediumtext" json:"applicationScopes"`
 }
 
 type Userinfo struct {
@@ -833,6 +837,29 @@ func UpdateUser(id string, user *User, columns []string, isAdmin bool) (bool, er
 		return false, fmt.Errorf("the user: %s is not found", id)
 	}
 
+	// Backstop for internal callers that bypass the controller-level check
+	// (OAuth profile sync, syncers, ...). The controller reports this in the
+	// caller's language; here we have no language to work with.
+	if msg := CheckSensitiveUserFieldsUpdate(oldUser, user, columns, ""); msg != "" {
+		return false, errors.New(msg)
+	}
+
+	// The rename demanded by the scan has been satisfied: the display name is
+	// really being written, it changed, and per the check above it is clean.
+	// The "is really being written" part matters — a body may carry a new
+	// display name while "?columns=" excludes it, in which case nothing is
+	// saved and the flag must stay on.
+	if oldUser.NeedUpdateDisplayName &&
+		IsColumnWritten(columns, "display_name") &&
+		user.DisplayName != oldUser.DisplayName {
+		if _, hit := util.ContainsSensitiveWord(user.DisplayName); !hit {
+			user.NeedUpdateDisplayName = false
+			if len(columns) > 0 {
+				columns = append(columns, "need_update_display_name")
+			}
+		}
+	}
+
 	// Auto-upgrade guest users when they update their username or password
 	if oldUser.Tag == "guest-user" {
 		// Check if username is being changed from the generated guest username
@@ -1006,6 +1033,10 @@ func AddUser(user *User, lang string) (bool, error) {
 
 	if CheckUsernameWithEmail(user.Name, "en") != "" {
 		user.Name = util.GetRandomName()
+	}
+
+	if msg := CheckSensitiveUserFields(user, lang); msg != "" {
+		return false, errors.New(msg)
 	}
 
 	organization, err := GetOrganizationByUser(user)
