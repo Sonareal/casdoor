@@ -231,3 +231,40 @@ func TestInitSensitiveFilterParsesAllowListSection(t *testing.T) {
 		t.Error("the banned word itself must still be caught")
 	}
 }
+
+// One simplified word list entry must also catch the traditional spelling;
+// hand-writing a traditional twin for every entry does not scale.
+func TestNormalizeFoldsTraditionalToSimplified(t *testing.T) {
+	matcher := NewSensitiveMatcher([]string{"贩毒", "强奸", "赌场", "杀人", "绑架", "裸体", "毒品"})
+
+	traditional := map[string]string{
+		"販毒集團": "贩毒",
+		"強姦犯":  "强奸",
+		"澳門賭場": "赌场",
+		"殺人狂":  "杀人",
+		"綁架撕票": "绑架",
+		"裸體照片": "裸体",
+		// folding is per-character: 販賣毒品 -> 贩卖毒品, which contains 毒品
+		// but NOT the non-contiguous 贩毒
+		"販賣毒品": "毒品",
+	}
+	for text, want := range traditional {
+		if word, hit := matcher.Match(text); !hit {
+			t.Errorf("traditional text %q should be blocked by the simplified entry %q", text, want)
+		} else if word != want {
+			t.Errorf("%q matched %q, expected %q", text, word, want)
+		}
+	}
+}
+
+// Folding must not invent matches: a character absent from the table simply
+// does not fold, and ordinary traditional text stays clean.
+func TestTraditionalFoldingDoesNotCreateFalsePositives(t *testing.T) {
+	matcher := NewSensitiveMatcher([]string{"贩毒", "杀人", "赌场"})
+
+	for _, ordinary := range []string{"張小明", "學習使我快樂", "愛讀書的孩子", "風雲人物", "寶貝計劃"} {
+		if word, hit := matcher.Match(ordinary); hit {
+			t.Errorf("ordinary traditional text %q was blocked by %q", ordinary, word)
+		}
+	}
+}

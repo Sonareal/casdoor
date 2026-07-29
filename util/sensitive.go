@@ -33,12 +33,41 @@ import (
 // folded away before matching. Both the input and the word list go through the
 // exact same normalization, so the word list is written in plain form.
 //
-// Two things normalization deliberately does NOT do, because they need data
-// tables we do not want to vendor:
-//   - traditional -> simplified Chinese
-//   - Chinese -> pinyin
+// Traditional Chinese is folded to simplified (see traditionalToSimplified), so
+// one simplified entry covers both spellings. Pinyin is NOT derived — add pinyin
+// spellings to the word list as their own entries when they matter.
+
+// traditionalToSimplified folds traditional Chinese characters to their
+// simplified form during normalization, so that a single simplified word list
+// entry also covers the traditional spelling. Without it, every entry would
+// need a hand-written traditional twin — which does not scale: the list uses
+// several hundred distinct characters.
 //
-// Add those variants to the word list as their own entries instead.
+// The table only needs to cover characters that appear in the word list. A
+// character missing from it simply does not fold, which can cause a miss but
+// never a false match — so growing the table is always safe, and omissions are
+// the failure mode we can live with.
+var traditionalToSimplified = map[rune]rune{
+	'亂': '乱', '來': '来', '倉': '仓', '個': '个', '們': '们', '倫': '伦', '傳': '传', '兒': '儿',
+	'動': '动', '務': '务', '員': '员', '單': '单', '嗎': '吗', '嘜': '麦', '國': '国', '圍': '围',
+	'園': '园', '圖': '图', '團': '团', '報': '报', '場': '场', '姦': '奸', '婦': '妇', '媽': '妈',
+	'學': '学', '實': '实', '寶': '宝', '屍': '尸', '廢': '废', '強': '强', '彈': '弹', '復': '复',
+	'愛': '爱', '應': '应', '戀': '恋', '戶': '户', '掃': '扫', '搶': '抢', '擊': '击', '斬': '斩',
+	'書': '书', '會': '会', '東': '东', '業': '业', '槍': '枪', '樂': '乐', '樓': '楼', '樣': '样',
+	'機': '机', '殘': '残', '殺': '杀', '殼': '壳', '滅': '灭', '滾': '滚', '為': '为', '獎': '奖',
+	'產': '产', '異': '异', '發': '发', '盤': '盘', '砲': '炮', '碼': '码', '種': '种', '穢': '秽',
+	'筆': '笔', '約': '约', '級': '级', '組': '组', '結': '结', '絡': '络', '統': '统', '綁': '绑',
+	'網': '网', '綵': '彩', '線': '线', '織': '织', '繫': '系', '罌': '罂', '習': '习', '聯': '联',
+	'職': '职', '脫': '脱', '莖': '茎', '蕩': '荡', '薦': '荐', '藥': '药', '蘿': '萝', '號': '号',
+	'製': '制', '褻': '亵', '襲': '袭', '視': '视', '訊': '讯', '記': '记', '註': '注', '話': '话',
+	'認': '认', '請': '请', '謝': '谢', '證': '证', '護': '护', '讚': '赞', '豬': '猪', '貝': '贝',
+	'貨': '货', '販': '贩', '買': '买', '費': '费', '資': '资', '賣': '卖', '賤': '贱', '賬': '账',
+	'賭': '赌', '賽': '赛', '車': '车', '軍': '军', '轉': '转', '這': '这', '進': '进', '運': '运',
+	'過': '过', '選': '选', '還': '还', '醯': '酯', '鏈': '链', '長': '长', '門': '门', '開': '开',
+	'間': '间', '關': '关', '陰': '阴', '隊': '队', '雲': '云', '電': '电', '領': '领', '頻': '频',
+	'顏': '颜', '風': '风', '馬': '马', '騷': '骚', '體': '体', '鬥': '斗', '鹼': '碱', '麥': '麦',
+	'點': '点',
+}
 
 // confusables are folded before non-alphanumeric runes are dropped, so entries
 // such as '@' still take effect. Kept deliberately small: every entry here is a
@@ -65,6 +94,9 @@ func NormalizeForMatch(s string) string {
 	var b strings.Builder
 	b.Grow(len(s))
 	for _, r := range s {
+		if c, ok := traditionalToSimplified[r]; ok {
+			r = c
+		}
 		if c, ok := confusables[r]; ok {
 			r = c
 		}
