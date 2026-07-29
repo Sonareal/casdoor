@@ -171,3 +171,63 @@ func TestNormalizeForMatch(t *testing.T) {
 		}
 	}
 }
+
+// The allow list exists for Chinese compounds where a banned word is a
+// substring of an innocent one. The banned word must still be caught on its
+// own — an allow list entry must not disable it wholesale.
+func TestSensitiveMatcherAllowList(t *testing.T) {
+	matcher := NewSensitiveMatcherWithAllowList(
+		[]string{"大麻", "处女"},
+		[]string{"大麻烦", "处女座"},
+	)
+
+	for _, allowed := range []string{"大麻烦制造者", "遇到大麻烦了", "处女座的我", "我是处女座"} {
+		if word, hit := matcher.Match(allowed); hit {
+			t.Errorf("%q should be allowed, but matched %q", allowed, word)
+		}
+	}
+
+	for _, blocked := range []string{"大麻", "我卖大麻", "大麻爱好者", "处女", "求处女"} {
+		if _, hit := matcher.Match(blocked); !hit {
+			t.Errorf("%q should still be blocked — the allow list must not disable the word itself", blocked)
+		}
+	}
+
+	if matcher.AllowListSize() != 2 {
+		t.Errorf("expected 2 allow list entries, got %d", matcher.AllowListSize())
+	}
+}
+
+// A banned word that merely overlaps an allowed phrase, without sitting
+// entirely inside it, must still be reported.
+func TestSensitiveMatcherAllowListPartialOverlap(t *testing.T) {
+	matcher := NewSensitiveMatcherWithAllowList([]string{"abcd"}, []string{"xxab"})
+
+	if _, hit := matcher.Match("xxabcd"); !hit {
+		t.Error("a banned word only partially covered by an allowed phrase must still be blocked")
+	}
+}
+
+func TestInitSensitiveFilterParsesAllowListSection(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "words.txt")
+
+	content := "[毒品]\n大麻\n\n[白名单]\n# comment\n大麻烦\n"
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := InitSensitiveFilter(path); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = InitSensitiveFilter("") })
+
+	if got := SensitiveWordCount(); got != 1 {
+		t.Errorf("expected 1 banned word (the allow list must not count), got %d", got)
+	}
+	if _, hit := ContainsSensitiveWord("遇到大麻烦"); hit {
+		t.Error("the allow list section was not applied")
+	}
+	if _, hit := ContainsSensitiveWord("卖大麻"); !hit {
+		t.Error("the banned word itself must still be caught")
+	}
+}

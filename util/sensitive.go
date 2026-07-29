@@ -82,32 +82,36 @@ type acNode struct {
 	children map[rune]*acNode
 	fail     *acNode
 	word     string // non-empty on a terminal node: the original word list entry
+	length   int    // rune length of the normalized form, for span computation
 }
 
 func newACNode() *acNode {
 	return &acNode{children: map[rune]*acNode{}}
 }
 
-// SensitiveMatcher is an Aho-Corasick automaton: one O(n) pass over the text
-// regardless of how many words are in the list.
-type SensitiveMatcher struct {
+// acAutomaton is an Aho-Corasick automaton: one O(n) pass over the text
+// regardless of how many words it holds.
+type acAutomaton struct {
 	root  *acNode
 	count int
 }
 
-// NewSensitiveMatcher builds an automaton from raw word list entries. Entries
-// are normalized here, so callers pass them in plain form. Entries that
-// normalize to an empty string are skipped.
-func NewSensitiveMatcher(words []string) *SensitiveMatcher {
-	m := &SensitiveMatcher{root: newACNode()}
+type acSpan struct {
+	start int // inclusive, in runes of the normalized text
+	end   int // exclusive
+	word  string
+}
+
+func newACAutomaton(words []string) *acAutomaton {
+	a := &acAutomaton{root: newACNode()}
 
 	for _, raw := range words {
-		normalized := NormalizeForMatch(raw)
-		if normalized == "" {
+		normalized := []rune(NormalizeForMatch(raw))
+		if len(normalized) == 0 {
 			continue
 		}
 
-		node := m.root
+		node := a.root
 		for _, r := range normalized {
 			next, ok := node.children[r]
 			if !ok {
@@ -118,19 +122,20 @@ func NewSensitiveMatcher(words []string) *SensitiveMatcher {
 		}
 		if node.word == "" {
 			node.word = strings.TrimSpace(raw)
-			m.count++
+			node.length = len(normalized)
+			a.count++
 		}
 	}
 
-	m.buildFailLinks()
-	return m
+	a.buildFailLinks()
+	return a
 }
 
-func (m *SensitiveMatcher) buildFailLinks() {
-	m.root.fail = m.root
-	queue := make([]*acNode, 0, len(m.root.children))
-	for _, child := range m.root.children {
-		child.fail = m.root
+func (a *acAutomaton) buildFailLinks() {
+	a.root.fail = a.root
+	queue := make([]*acNode, 0, len(a.root.children))
+	for _, child := range a.root.children {
+		child.fail = a.root
 		queue = append(queue, child)
 	}
 
@@ -140,14 +145,14 @@ func (m *SensitiveMatcher) buildFailLinks() {
 
 		for r, child := range node.children {
 			fail := node.fail
-			for fail != m.root {
+			for fail != a.root {
 				if _, ok := fail.children[r]; ok {
 					break
 				}
 				fail = fail.fail
 			}
 
-			child.fail = m.root
+			child.fail = a.root
 			if next, ok := fail.children[r]; ok && next != child {
 				child.fail = next
 			}
@@ -157,15 +162,85 @@ func (m *SensitiveMatcher) buildFailLinks() {
 	}
 }
 
-// Size reports how many distinct words the automaton holds.
-func (m *SensitiveMatcher) Size() int {
-	if m == nil {
-		return 0
+// findSpans reports every match in the normalized text, as rune offsets.
+func (a *acAutomaton) findSpans(runes []rune) []acSpan {
+	if a == nil || a.root == nil {
+		return nil
 	}
-	return m.count
+
+	spans := []acSpan{}
+	node := a.root
+	for i, r := range runes {
+		for {
+			if next, ok := node.children[r]; ok {
+				node = next
+				break
+			}
+			if node == a.root {
+				break
+			}
+			node = node.fail
+		}
+
+		// Walk the fail chain so that words which are suffixes of the current
+		// path are reported too (e.g. both "abc" and "bc" in the list).
+		for t := node; t != a.root; t = t.fail {
+			if t.word == "" {
+				continue
+			}
+			spans = append(spans, acSpan{start: i + 1 - t.length, end: i + 1, word: t.word})
+		}
+	}
+
+	return spans
 }
 
-// Match returns the first word list entry found in text, if any. The text is
+// SensitiveMatcher holds the banned words plus an allow list of longer phrases
+// that legitimately contain one of them.
+//
+// The allow list exists because Chinese compounds collide constantly: "大麻"
+// (cannabis) is a substring of "大麻烦" (big trouble), "处女" of "处女座"
+// (Virgo). Dropping the short word to dodge the collision would leave it
+// usable on its own, so instead a match is discarded when it falls entirely
+// inside an allowed phrase.
+type SensitiveMatcher struct {
+	banned  *acAutomaton
+	allowed *acAutomaton
+}
+
+// NewSensitiveMatcher builds a matcher from raw word list entries. Entries are
+// normalized here, so callers pass them in plain form. Entries that normalize
+// to an empty string are skipped.
+func NewSensitiveMatcher(words []string) *SensitiveMatcher {
+	return NewSensitiveMatcherWithAllowList(words, nil)
+}
+
+// NewSensitiveMatcherWithAllowList also takes phrases that must never be
+// treated as a violation, even when they contain a banned word.
+func NewSensitiveMatcherWithAllowList(words []string, allowed []string) *SensitiveMatcher {
+	return &SensitiveMatcher{
+		banned:  newACAutomaton(words),
+		allowed: newACAutomaton(allowed),
+	}
+}
+
+// Size reports how many distinct banned words the matcher holds.
+func (m *SensitiveMatcher) Size() int {
+	if m == nil || m.banned == nil {
+		return 0
+	}
+	return m.banned.count
+}
+
+// AllowListSize reports how many allow list phrases the matcher holds.
+func (m *SensitiveMatcher) AllowListSize() int {
+	if m == nil || m.allowed == nil {
+		return 0
+	}
+	return m.allowed.count
+}
+
+// Match returns the first banned word found in text, if any. The text is
 // normalized internally.
 func (m *SensitiveMatcher) Match(text string) (string, bool) {
 	hits := m.match(text, true)
@@ -175,54 +250,69 @@ func (m *SensitiveMatcher) Match(text string) (string, bool) {
 	return hits[0], true
 }
 
-// MatchAll returns every distinct word list entry found in text.
+// MatchAll returns every distinct banned word found in text.
 func (m *SensitiveMatcher) MatchAll(text string) []string {
 	return m.match(text, false)
 }
 
 func (m *SensitiveMatcher) match(text string, stopAtFirst bool) []string {
-	if m == nil || m.root == nil {
+	if m == nil || m.banned == nil {
 		return nil
 	}
 
-	normalized := NormalizeForMatch(text)
-	if normalized == "" {
+	runes := []rune(NormalizeForMatch(text))
+	if len(runes) == 0 {
 		return nil
+	}
+
+	spans := m.banned.findSpans(runes)
+	if len(spans) == 0 {
+		return nil
+	}
+
+	// Mark the positions covered by an allowed phrase; a banned match sitting
+	// entirely inside one of them is a false positive, not a violation.
+	var allowedMask []bool
+	if m.allowed != nil && m.allowed.count > 0 {
+		allowedMask = make([]bool, len(runes))
+		for _, span := range m.allowed.findSpans(runes) {
+			for i := span.start; i < span.end; i++ {
+				allowedMask[i] = true
+			}
+		}
 	}
 
 	var (
 		hits []string
 		seen = map[string]bool{}
 	)
-
-	node := m.root
-	for _, r := range normalized {
-		for {
-			if next, ok := node.children[r]; ok {
-				node = next
-				break
-			}
-			if node == m.root {
-				break
-			}
-			node = node.fail
+	for _, span := range spans {
+		if isFullyAllowed(allowedMask, span) {
+			continue
 		}
-
-		// Walk the fail chain so that words which are suffixes of the current
-		// path are reported too (e.g. both "abc" and "bc" in the list).
-		for t := node; t != m.root; t = t.fail {
-			if t.word == "" || seen[t.word] {
-				continue
-			}
-			seen[t.word] = true
-			hits = append(hits, t.word)
-			if stopAtFirst {
-				return hits
-			}
+		if seen[span.word] {
+			continue
+		}
+		seen[span.word] = true
+		hits = append(hits, span.word)
+		if stopAtFirst {
+			return hits
 		}
 	}
 
 	return hits
+}
+
+func isFullyAllowed(allowedMask []bool, span acSpan) bool {
+	if allowedMask == nil {
+		return false
+	}
+	for i := span.start; i < span.end; i++ {
+		if i < 0 || i >= len(allowedMask) || !allowedMask[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // ---------------------------------------------------------------------------
@@ -250,6 +340,21 @@ func InitSensitiveFilter(path string) error {
 	return loadSensitiveWordsLocked()
 }
 
+// allowListSectionNames are the section headers that switch the parser over to
+// the allow list. Both spellings are accepted so the file stays readable to
+// whoever maintains it.
+var allowListSectionNames = []string{"白名单", "例外", "allowlist", "allow list", "whitelist"}
+
+func isAllowListSection(line string) bool {
+	name := strings.ToLower(strings.TrimSpace(strings.Trim(line, "[]")))
+	for _, candidate := range allowListSectionNames {
+		if name == candidate {
+			return true
+		}
+	}
+	return false
+}
+
 // loadSensitiveWordsLocked must be called with sensitiveMutex held for writing.
 func loadSensitiveWordsLocked() error {
 	sensitiveNextStat = time.Now().Add(sensitiveStatInterval)
@@ -275,20 +380,32 @@ func loadSensitiveWordsLocked() error {
 	defer file.Close()
 
 	words := []string{}
+	allowed := []string{}
+	inAllowList := false
+
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		// "#" starts a comment; "[Category]" lines label a section.
-		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "[") {
+		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		words = append(words, line)
+		// "[Category]" lines label a section. One section name is special: it
+		// switches the following entries to the allow list.
+		if strings.HasPrefix(line, "[") {
+			inAllowList = isAllowListSection(line)
+			continue
+		}
+		if inAllowList {
+			allowed = append(allowed, line)
+		} else {
+			words = append(words, line)
+		}
 	}
 	if err := scanner.Err(); err != nil {
 		return err
 	}
 
-	sensitiveMatcher = NewSensitiveMatcher(words)
+	sensitiveMatcher = NewSensitiveMatcherWithAllowList(words, allowed)
 	sensitiveModTime = info.ModTime()
 	return nil
 }
