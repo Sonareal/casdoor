@@ -81,8 +81,9 @@ type Organization struct {
 	// 本组织允许的自定义属性定义。为空表示不限制（任何合法键都能写）。
 	CustomPropertyItems []*CustomPropertyItem `xorm:"mediumtext" json:"customPropertyItems"`
 
-	// 仅 built-in 组织上的这两项生效，作为全局配置：自定义属性反查的访问控制。
-	// 放在组织上而不是 app.conf，是为了能在后台界面改、改完立即生效、不用重启。
+	// 谁可以在**本组织内**按自定义属性反查账号。权限跟着组织走，所以一个调用方的
+	// 可查范围就是把它列入白名单的那些组织的并集 —— 范围由配置决定，不会因为
+	// 拿到管理员令牌就无限大。留空表示本组织不允许任何人反查。
 	CustomPropertyLookupWhitelist   string   `xorm:"varchar(500)" json:"customPropertyLookupWhitelist"`
 	CustomPropertyLookupIpWhitelist string   `xorm:"varchar(500)" json:"customPropertyLookupIpWhitelist"`
 	InitScore                       int      `json:"initScore"`

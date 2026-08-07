@@ -154,3 +154,47 @@ func TestCheckCustomPropertyDeclared(t *testing.T) {
 		t.Errorf("with no declared items anything valid should pass, got %v", err)
 	}
 }
+
+func TestIsCallerWhitelisted(t *testing.T) {
+	const whitelist = "app/app-backoffice, built-in/admin"
+
+	for _, caller := range []string{"app/app-backoffice", "built-in/admin"} {
+		if !isCallerWhitelisted(whitelist, caller) {
+			t.Errorf("caller %q is listed but was not matched", caller)
+		}
+	}
+	for _, caller := range []string{"app/other", "gloopo/alice", "app/app-backoffice2"} {
+		if isCallerWhitelisted(whitelist, caller) {
+			t.Errorf("caller %q is not listed but matched", caller)
+		}
+	}
+	// An empty caller must never match, including against an empty whitelist —
+	// otherwise an unauthenticated request would slip through.
+	if isCallerWhitelisted("", "") || isCallerWhitelisted(" , ", "") {
+		t.Error("an empty caller must not match")
+	}
+}
+
+func TestIsIpAllowed(t *testing.T) {
+	// No list means the organization did not restrict by IP.
+	if !isIpAllowed("", "8.8.8.8") {
+		t.Error("an empty IP whitelist must not restrict")
+	}
+
+	const cidrs = "192.168.2.0/24, 10.1.0.0/16"
+	for _, ip := range []string{"192.168.2.12", "10.1.5.7"} {
+		if !isIpAllowed(cidrs, ip) {
+			t.Errorf("IP %q is inside the whitelist but was refused", ip)
+		}
+	}
+	for _, ip := range []string{"192.168.3.1", "8.8.8.8", "not-an-ip", ""} {
+		if isIpAllowed(cidrs, ip) {
+			t.Errorf("IP %q is outside the whitelist but was allowed", ip)
+		}
+	}
+
+	// A malformed entry must not swallow the valid ones next to it.
+	if !isIpAllowed("garbage, 127.0.0.0/8", "127.0.0.1") {
+		t.Error("a malformed CIDR must be skipped, not abort the whole check")
+	}
+}

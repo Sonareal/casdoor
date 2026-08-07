@@ -15,7 +15,6 @@
 package object
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"regexp"
@@ -168,114 +167,119 @@ func checkCustomPropertyDeclared(items []*CustomPropertyItem, key string, lang s
 	return fmt.Errorf(i18n.Translate(lang, "user:The custom property: %s is not declared in the organization settings"), key)
 }
 
-// IsPrimaryCustomPropertyKey reports whether key is the searchable attribute of
-// any organization — or of `owner` specifically when one is given.
-//
-// Restricting the reverse lookup to declared primary keys keeps the searchable
-// surface to what an operator chose. Otherwise every stored attribute, down to
-// a UI theme, would double as a way to enumerate accounts.
-func IsPrimaryCustomPropertyKey(owner string, key string) (bool, error) {
-	organizations := []*Organization{}
-	session := ormer.Engine.NewSession()
-	defer session.Close()
-	if owner != "" {
-		session = session.Where("name = ?", owner)
-	}
-	if err := session.Find(&organizations); err != nil {
-		return false, err
-	}
-
-	for _, organization := range organizations {
-		for _, item := range organization.CustomPropertyItems {
-			if item != nil && item.IsPrimary && item.Name == key {
-				return true, nil
-			}
-		}
-	}
-	return false, nil
-}
-
-// getLookupSettings reads the reverse-lookup access control. It lives on the
-// built-in organization rather than in app.conf so that an operator can change
-// it from the admin UI and have it take effect immediately, with no file edit
-// and no container restart.
-func getLookupSettings() (whitelist string, ipWhitelist string, err error) {
-	organization, err := getOrganization("admin", "built-in")
-	if err != nil {
-		return "", "", err
-	}
-	if organization == nil {
-		return "", "", nil
-	}
-	return strings.TrimSpace(organization.CustomPropertyLookupWhitelist),
-		strings.TrimSpace(organization.CustomPropertyLookupIpWhitelist), nil
-}
-
-// CheckCustomPropertyLookupAllowed gates the reverse lookup.
-//
-// The lookup spans every organization, so it can turn an opaque value such as a
-// device id into an account in any product line. That is too much reach to hand
-// out on the strength of an admin token alone, so access is deny-by-default:
-// with no whitelist configured the endpoint is off entirely, rather than open
-// to every admin.
-//
-// Both lists are configured on the built-in organization in the admin UI.
-func CheckCustomPropertyLookupAllowed(callerId string, clientIp string, lang string) error {
-	whitelist, ipWhitelist, err := getLookupSettings()
-	if err != nil {
-		return err
-	}
-
-	if whitelist == "" {
-		return errors.New(i18n.Translate(lang, "user:The custom property lookup is not enabled; configure it on the built-in organization"))
-	}
-
-	allowed := false
+func isCallerWhitelisted(whitelist string, callerId string) bool {
 	for _, candidate := range strings.Split(whitelist, ",") {
-		if strings.TrimSpace(candidate) == callerId {
-			allowed = true
-			break
+		if strings.TrimSpace(candidate) == callerId && callerId != "" {
+			return true
 		}
 	}
-	if !allowed {
-		return fmt.Errorf(i18n.Translate(lang, "user:The caller: %s is not allowed to look up users by custom property"), callerId)
-	}
+	return false
+}
 
+func isIpAllowed(ipWhitelist string, clientIp string) bool {
+	ipWhitelist = strings.TrimSpace(ipWhitelist)
 	if ipWhitelist == "" {
-		return nil
+		return true
 	}
 
 	entryIp := net.ParseIP(clientIp)
 	if entryIp == nil {
-		return fmt.Errorf(i18n.Translate(lang, "check:Failed to parse client IP: %s"), clientIp)
+		return false
 	}
 	for _, cidr := range strings.Split(ipWhitelist, ",") {
 		_, ipNet, err := net.ParseCIDR(strings.TrimSpace(cidr))
-		if err != nil {
-			return err
+		if err != nil || ipNet == nil {
+			continue
 		}
-		if ipNet != nil && ipNet.Contains(entryIp) {
-			return nil
+		if ipNet.Contains(entryIp) {
+			return true
+		}
+	}
+	return false
+}
+
+// ResolveCustomPropertyLookupScope works out which organizations a reverse
+// lookup may actually touch.
+//
+// Permission follows the organization: each one lists the callers allowed to
+// resolve values inside it, so a caller's reach is exactly the union of the
+// organizations that named it — never "everything, because the token is admin".
+// A lookup with no owner is still global, but global here means "every
+// organization that granted this caller access", which is a bounded set the
+// operator chose one org at a time.
+//
+// An organization is in scope only if it also declares `key` as its primary
+// lookup attribute, so a caller cannot search by an attribute that happens to
+// exist there but was never meant to be searchable.
+//
+// Returns the organizations to search. An empty result is always an error: with
+// nothing configured the endpoint stays closed rather than open.
+func ResolveCustomPropertyLookupScope(callerId string, clientIp string, key string, owner string, lang string) ([]string, error) {
+	organizations := []*Organization{}
+	if err := ormer.Engine.Find(&organizations); err != nil {
+		return nil, err
+	}
+
+	var (
+		whitelistedAnywhere bool
+		blockedByIp         bool
+		scope               []string
+	)
+
+	for _, organization := range organizations {
+		if owner != "" && organization.Name != owner {
+			continue
+		}
+		if !isCallerWhitelisted(organization.CustomPropertyLookupWhitelist, callerId) {
+			continue
+		}
+		whitelistedAnywhere = true
+
+		if !isIpAllowed(organization.CustomPropertyLookupIpWhitelist, clientIp) {
+			blockedByIp = true
+			continue
+		}
+
+		for _, item := range organization.CustomPropertyItems {
+			if item != nil && item.IsPrimary && item.Name == key {
+				scope = append(scope, organization.Name)
+				break
+			}
 		}
 	}
 
-	return fmt.Errorf(i18n.Translate(lang, "user:The client IP: %s is not in the lookup IP whitelist"), clientIp)
+	if len(scope) > 0 {
+		sort.Strings(scope)
+		return scope, nil
+	}
+
+	// Distinguish the reasons: "you have no access" and "that key is not
+	// searchable" send an operator to very different places.
+	if !whitelistedAnywhere {
+		return nil, fmt.Errorf(i18n.Translate(lang, "user:The caller: %s is not allowed to look up users by custom property"), callerId)
+	}
+	if blockedByIp {
+		return nil, fmt.Errorf(i18n.Translate(lang, "user:The client IP: %s is not in the lookup IP whitelist"), clientIp)
+	}
+	return nil, fmt.Errorf(i18n.Translate(lang, "user:The custom property: %s is not configured as a primary key for lookup"), key)
 }
 
 // GetUsersByCustomProperty finds the users whose custom property `key` holds
 // `value`, most recently updated first.
 //
-// owner narrows the search to one organization; empty searches every one. The
-// global form is what a back office needs when it only has a device id and does
-// not yet know which product line it belongs to — which is also why callers are
-// gated by CheckCustomPropertyLookupAllowed.
+// owners is the set of organizations to search, as resolved by
+// ResolveCustomPropertyLookupScope — never caller-supplied directly, so a
+// caller cannot widen its own reach.
 //
 // A value may legitimately belong to several accounts — the same device used by
 // more than one login — so this returns all of them, newest claim first, and
 // lets the caller pick rather than guessing here.
-func GetUsersByCustomProperty(owner string, key string, value string) ([]*User, error) {
+func GetUsersByCustomProperty(owners []string, key string, value string) ([]*User, error) {
 	if key == "" {
 		return nil, fmt.Errorf("the key should not be empty")
+	}
+	if len(owners) == 0 {
+		return []*User{}, nil
 	}
 
 	users := []*User{}
@@ -287,12 +291,10 @@ func GetUsersByCustomProperty(owner string, key string, value string) ([]*User, 
 	// bottleneck, PostgreSQL can index it with
 	//   CREATE INDEX ... USING gin ((custom_properties::jsonb) jsonb_path_ops)
 	// and match with the @> containment operator instead.
-	session := ormer.Engine.Where("custom_properties LIKE ?", "%"+escapeLikePattern(value)+"%")
-	if owner != "" {
-		session = session.And("owner = ?", owner)
-	}
-
-	err := session.Find(&users)
+	err := ormer.Engine.
+		Where("custom_properties LIKE ?", "%"+escapeLikePattern(value)+"%").
+		In("owner", owners).
+		Find(&users)
 	if err != nil {
 		return nil, err
 	}

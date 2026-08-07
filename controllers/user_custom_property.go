@@ -136,31 +136,24 @@ func (c *ApiController) SetCustomProperties() {
 // GetUsersByCustomProperty
 // @Title GetUsersByCustomProperty
 // @Tag User API
-// @Description look up the users in an organization whose custom property holds a value,
-// @Description most recently updated first. Admin only.
-// @Param   owner   query   string  true   "The organization to search"
+// @Description look up users whose custom property holds a value, most recently
+// @Description updated first. Searches the organizations that whitelist the caller.
+// @Param   owner   query   string  false  "Narrow to one organization; must be one the caller is allowed in"
 // @Param   key     query   string  true   "The custom property name, e.g. deviceId"
 // @Param   value   query   string  true   "The value to match exactly"
 // @Success 200 {object} controllers.Response The Response object
 // @router /get-users-by-custom-property [get]
 func (c *ApiController) GetUsersByCustomProperty() {
-	// Three gates, because this one endpoint can resolve an opaque value such
-	// as a device id back to an account in ANY organization:
-	//   1. admin only — an ordinary token must never reach it
-	//   2. an explicit caller whitelist, deny-by-default (app.conf)
-	//   3. an optional source-IP whitelist on top
+	// Permission follows the organization: each one lists the callers allowed
+	// to resolve values inside it. A caller's reach is therefore the union of
+	// the organizations that named it — bounded by construction, rather than
+	// "everything, because the token is admin".
 	if !c.IsAdmin() {
 		c.ResponseError(c.T("auth:Unauthorized operation"))
 		return
 	}
 
-	clientIp := util.GetClientIpFromRequest(c.Ctx.Request)
-	if err := object.CheckCustomPropertyLookupAllowed(c.GetSessionUsername(), clientIp, c.GetAcceptLanguage()); err != nil {
-		c.ResponseError(err.Error())
-		return
-	}
-
-	// owner is optional: empty searches every organization.
+	// owner is optional: empty means every organization the caller is allowed in.
 	owner := c.Ctx.Input.Query("owner")
 	key := c.Ctx.Input.Query("key")
 	value := c.Ctx.Input.Query("value")
@@ -169,20 +162,14 @@ func (c *ApiController) GetUsersByCustomProperty() {
 		return
 	}
 
-	// Only an attribute an operator marked as the primary key may be searched.
-	// Otherwise every stored attribute — a theme, an app version — would double
-	// as a way to enumerate accounts.
-	isPrimary, err := object.IsPrimaryCustomPropertyKey(owner, key)
+	clientIp := util.GetClientIpFromRequest(c.Ctx.Request)
+	scope, err := object.ResolveCustomPropertyLookupScope(c.GetSessionUsername(), clientIp, key, owner, c.GetAcceptLanguage())
 	if err != nil {
 		c.ResponseError(err.Error())
 		return
 	}
-	if !isPrimary {
-		c.ResponseError(fmt.Sprintf(c.T("user:The custom property: %s is not configured as a primary key for lookup"), key))
-		return
-	}
 
-	users, err := object.GetUsersByCustomProperty(owner, key, value)
+	users, err := object.GetUsersByCustomProperty(scope, key, value)
 	if err != nil {
 		c.ResponseError(err.Error())
 		return
