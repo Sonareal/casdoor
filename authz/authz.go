@@ -146,6 +146,8 @@ p, *, *, GET, /api/faceid-signin-begin, *, *
 p, *, *, GET, /api/kerberos-login, *, *
 p, *, *, POST, /api/grant-consent, *, *
 p, *, *, POST, /api/revoke-consent, *, *
+p, *, *, GET, /api/get-custom-properties, *, *
+p, *, *, POST, /api/set-custom-properties, *, *
 `
 
 		sa := stringadapter.NewAdapter(ruleText)

@@ -192,6 +192,7 @@
     "Token not found, invalid accessToken": "Token not found, invalid accessToken"
   },
   "user": {
+    "A user may have at most %d custom properties": "A user may have at most %d custom properties",
     "Display name cannot be empty": "Display name cannot be empty",
     "ID card information and real name are required": "ID card information and real name are required",
     "Identity verification failed": "Identity verification failed",
@@ -199,7 +200,13 @@
     "MFA phone is enabled but phone number is empty": "MFA phone is enabled but phone number is empty",
     "New password cannot contain blank space.": "New password cannot contain blank space.",
     "No application found for user": "No application found for user",
+    "The caller: %s is not allowed to look up users by custom property": "The caller: %s is not allowed to look up users by custom property",
+    "The client IP: %s is not in customPropertyLookupIpWhitelist": "The client IP: %s is not in customPropertyLookupIpWhitelist",
+    "The custom property key is too long (maximum is %d characters)": "The custom property key is too long (maximum is %d characters)",
+    "The custom property key: %s is invalid, it may only contain letters, digits, and the characters _ . -": "The custom property key: %s is invalid, it may only contain letters, digits, and the characters _ . -",
+    "The custom property lookup is not enabled; set customPropertyLookupWhitelist in app.conf": "The custom property lookup is not enabled; set customPropertyLookupWhitelist in app.conf",
     "The new password must be different from your current password": "The new password must be different from your current password",
+    "The value of the custom property: %s is too long (maximum is %d characters)": "The value of the custom property: %s is too long (maximum is %d characters)",
     "User is already verified": "User is already verified",
     "the user's owner and name should not be empty": "the user's owner and name should not be empty"
   },

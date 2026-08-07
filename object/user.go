@@ -229,6 +229,10 @@ type User struct {
 	Ldap       string            `xorm:"ldap varchar(100)" json:"ldap"`
 	Properties map[string]string `json:"properties"`
 
+	// Application-defined attributes the user may set on themselves. Kept out
+	// of Properties above, which the server owns — see user_custom_property.go.
+	CustomProperties map[string]*CustomProperty `xorm:"mediumtext" json:"customProperties"`
+
 	ThirdPartyLinks []*ThirdPartyLink `xorm:"-" json:"thirdPartyLinks,omitempty"`
 
 	Roles       []*Role       `json:"roles"`
