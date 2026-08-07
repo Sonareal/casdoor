@@ -17,10 +17,44 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
+	"net"
+	"net/http"
+	"strings"
 
 	"github.com/casdoor/casdoor/object"
-	"github.com/casdoor/casdoor/util"
 )
+
+// clientIpForIpWhitelist resolves the address to match against an IP whitelist.
+//
+// It deliberately does NOT reuse util.GetClientIpFromRequest, which takes the
+// FIRST entry of X-Forwarded-For. The reverse proxy in front of Casdoor is
+// configured with $proxy_add_x_forwarded_for, which APPENDS the real peer to
+// whatever the caller sent — so the first entry is caller-controlled, and a
+// request carrying "X-Forwarded-For: 10.0.0.1" would pass any whitelist. That
+// is fine for a log line; it is not fine for an access control.
+//
+// The last entry is the one our own proxy appended, so it is the peer as the
+// proxy saw it. This assumes a single trusted proxy hop, which matches the
+// nginx -> casdoor deployment; adding another hop in front would need this to
+// count back further.
+func clientIpForIpWhitelist(req *http.Request) string {
+	if forwarded := req.Header.Get("X-Forwarded-For"); forwarded != "" {
+		parts := strings.Split(forwarded, ",")
+		last := strings.TrimSpace(parts[len(parts)-1])
+		if host, _, err := net.SplitHostPort(last); err == nil {
+			last = host
+		}
+		if ip := strings.Trim(last, "[]"); ip != "" {
+			return ip
+		}
+	}
+
+	host, _, err := net.SplitHostPort(req.RemoteAddr)
+	if err != nil {
+		return strings.Trim(req.RemoteAddr, "[]")
+	}
+	return strings.Trim(host, "[]")
+}
 
 // resolveCustomPropertyTarget picks the user a custom-property request applies
 // to. Without "id" it is the caller themselves, which is the case an app hits
@@ -162,7 +196,7 @@ func (c *ApiController) GetUsersByCustomProperty() {
 		return
 	}
 
-	clientIp := util.GetClientIpFromRequest(c.Ctx.Request)
+	clientIp := clientIpForIpWhitelist(c.Ctx.Request)
 	scope, err := object.ResolveCustomPropertyLookupScope(c.GetSessionUsername(), clientIp, key, owner, c.GetAcceptLanguage())
 	if err != nil {
 		c.ResponseError(err.Error())
