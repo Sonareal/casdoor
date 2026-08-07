@@ -77,16 +77,24 @@ type Organization struct {
 	DefaultPassword        string     `xorm:"varchar(200)" json:"defaultPassword"`
 	MasterVerificationCode string     `xorm:"varchar(100)" json:"masterVerificationCode"`
 	IpWhitelist            string     `xorm:"varchar(200)" json:"ipWhitelist"`
-	InitScore              int        `json:"initScore"`
-	EnableSoftDeletion     bool       `json:"enableSoftDeletion"`
-	IsProfilePublic        bool       `json:"isProfilePublic"`
-	UseEmailAsUsername     bool       `json:"useEmailAsUsername"`
-	EnableTour             bool       `json:"enableTour"`
-	DisableSignin          bool       `json:"disableSignin"`
-	IpRestriction          string     `json:"ipRestriction"`
-	NavItems               []string   `xorm:"mediumtext" json:"navItems"`
-	UserNavItems           []string   `xorm:"mediumtext" json:"userNavItems"`
-	WidgetItems            []string   `xorm:"mediumtext" json:"widgetItems"`
+
+	// 本组织允许的自定义属性定义。为空表示不限制（任何合法键都能写）。
+	CustomPropertyItems []*CustomPropertyItem `xorm:"mediumtext" json:"customPropertyItems"`
+
+	// 仅 built-in 组织上的这两项生效，作为全局配置：自定义属性反查的访问控制。
+	// 放在组织上而不是 app.conf，是为了能在后台界面改、改完立即生效、不用重启。
+	CustomPropertyLookupWhitelist   string   `xorm:"varchar(500)" json:"customPropertyLookupWhitelist"`
+	CustomPropertyLookupIpWhitelist string   `xorm:"varchar(500)" json:"customPropertyLookupIpWhitelist"`
+	InitScore                       int      `json:"initScore"`
+	EnableSoftDeletion              bool     `json:"enableSoftDeletion"`
+	IsProfilePublic                 bool     `json:"isProfilePublic"`
+	UseEmailAsUsername              bool     `json:"useEmailAsUsername"`
+	EnableTour                      bool     `json:"enableTour"`
+	DisableSignin                   bool     `json:"disableSignin"`
+	IpRestriction                   string   `json:"ipRestriction"`
+	NavItems                        []string `xorm:"mediumtext" json:"navItems"`
+	UserNavItems                    []string `xorm:"mediumtext" json:"userNavItems"`
+	WidgetItems                     []string `xorm:"mediumtext" json:"widgetItems"`
 
 	MfaItems           []*MfaItem     `xorm:"varchar(300)" json:"mfaItems"`
 	MfaRememberInHours int            `json:"mfaRememberInHours"`

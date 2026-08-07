@@ -169,6 +169,19 @@ func (c *ApiController) GetUsersByCustomProperty() {
 		return
 	}
 
+	// Only an attribute an operator marked as the primary key may be searched.
+	// Otherwise every stored attribute — a theme, an app version — would double
+	// as a way to enumerate accounts.
+	isPrimary, err := object.IsPrimaryCustomPropertyKey(owner, key)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+	if !isPrimary {
+		c.ResponseError(fmt.Sprintf(c.T("user:The custom property: %s is not configured as a primary key for lookup"), key))
+		return
+	}
+
 	users, err := object.GetUsersByCustomProperty(owner, key, value)
 	if err != nil {
 		c.ResponseError(err.Error())

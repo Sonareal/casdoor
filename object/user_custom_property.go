@@ -22,7 +22,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/casdoor/casdoor/conf"
 	"github.com/casdoor/casdoor/i18n"
 	"github.com/casdoor/casdoor/util"
 	"github.com/xorm-io/core"
@@ -44,6 +43,21 @@ import (
 type CustomProperty struct {
 	Value       string `json:"value"`
 	UpdatedTime string `json:"updatedTime"`
+}
+
+// CustomPropertyItem declares one attribute an organization accepts. Configured
+// on the organization's page in the admin UI, so adding an attribute does not
+// need a code change.
+//
+// IsPrimary marks the one attribute the reverse lookup may search by. Without
+// it any attribute would be searchable, which would turn every stored value —
+// a theme, an app version — into a way to enumerate accounts. Keeping the
+// searchable surface to a declared key is the point.
+type CustomPropertyItem struct {
+	Name        string `json:"name"`
+	DisplayName string `json:"displayName"`
+	Description string `json:"description"`
+	IsPrimary   bool   `json:"isPrimary"`
 }
 
 const (
@@ -81,11 +95,24 @@ func SetUserCustomProperties(user *User, updates map[string]*string, lang string
 		merged[key] = property
 	}
 
+	items, err := GetCustomPropertyItems(user.Owner)
+	if err != nil {
+		return nil, err
+	}
+
 	now := util.GetCurrentTime()
 	for key, value := range updates {
 		key = strings.TrimSpace(key)
 		if err := validateCustomPropertyKey(key, lang); err != nil {
 			return nil, err
+		}
+		// Deleting a key the organization no longer declares must stay
+		// possible, otherwise removing an item from the schema would strand
+		// the values already stored under it.
+		if value != nil {
+			if err := checkCustomPropertyDeclared(items, key, lang); err != nil {
+				return nil, err
+			}
 		}
 
 		if value == nil {
@@ -112,6 +139,78 @@ func SetUserCustomProperties(user *User, updates map[string]*string, lang string
 	return merged, nil
 }
 
+// GetCustomPropertyItems returns the attribute schema an organization declares.
+// An empty result means the organization has not declared one, in which case
+// any syntactically valid key is accepted.
+func GetCustomPropertyItems(owner string) ([]*CustomPropertyItem, error) {
+	organization, err := getOrganization("admin", owner)
+	if err != nil {
+		return nil, err
+	}
+	if organization == nil {
+		return nil, nil
+	}
+	return organization.CustomPropertyItems, nil
+}
+
+// checkCustomPropertyDeclared enforces the organization's schema on a write.
+// An organization with no declared items accepts anything valid, which keeps
+// existing deployments working until someone fills the table in.
+func checkCustomPropertyDeclared(items []*CustomPropertyItem, key string, lang string) error {
+	if len(items) == 0 {
+		return nil
+	}
+	for _, item := range items {
+		if item != nil && item.Name == key {
+			return nil
+		}
+	}
+	return fmt.Errorf(i18n.Translate(lang, "user:The custom property: %s is not declared in the organization settings"), key)
+}
+
+// IsPrimaryCustomPropertyKey reports whether key is the searchable attribute of
+// any organization — or of `owner` specifically when one is given.
+//
+// Restricting the reverse lookup to declared primary keys keeps the searchable
+// surface to what an operator chose. Otherwise every stored attribute, down to
+// a UI theme, would double as a way to enumerate accounts.
+func IsPrimaryCustomPropertyKey(owner string, key string) (bool, error) {
+	organizations := []*Organization{}
+	session := ormer.Engine.NewSession()
+	defer session.Close()
+	if owner != "" {
+		session = session.Where("name = ?", owner)
+	}
+	if err := session.Find(&organizations); err != nil {
+		return false, err
+	}
+
+	for _, organization := range organizations {
+		for _, item := range organization.CustomPropertyItems {
+			if item != nil && item.IsPrimary && item.Name == key {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
+// getLookupSettings reads the reverse-lookup access control. It lives on the
+// built-in organization rather than in app.conf so that an operator can change
+// it from the admin UI and have it take effect immediately, with no file edit
+// and no container restart.
+func getLookupSettings() (whitelist string, ipWhitelist string, err error) {
+	organization, err := getOrganization("admin", "built-in")
+	if err != nil {
+		return "", "", err
+	}
+	if organization == nil {
+		return "", "", nil
+	}
+	return strings.TrimSpace(organization.CustomPropertyLookupWhitelist),
+		strings.TrimSpace(organization.CustomPropertyLookupIpWhitelist), nil
+}
+
 // CheckCustomPropertyLookupAllowed gates the reverse lookup.
 //
 // The lookup spans every organization, so it can turn an opaque value such as a
@@ -120,14 +219,15 @@ func SetUserCustomProperties(user *User, updates map[string]*string, lang string
 // with no whitelist configured the endpoint is off entirely, rather than open
 // to every admin.
 //
-// Configured in app.conf:
-//
-//	customPropertyLookupWhitelist   = "app/app-built-in,built-in/admin"
-//	customPropertyLookupIpWhitelist = "192.168.2.0/24"   // optional
+// Both lists are configured on the built-in organization in the admin UI.
 func CheckCustomPropertyLookupAllowed(callerId string, clientIp string, lang string) error {
-	whitelist := strings.TrimSpace(conf.GetConfigString("customPropertyLookupWhitelist"))
+	whitelist, ipWhitelist, err := getLookupSettings()
+	if err != nil {
+		return err
+	}
+
 	if whitelist == "" {
-		return errors.New(i18n.Translate(lang, "user:The custom property lookup is not enabled; set customPropertyLookupWhitelist in app.conf"))
+		return errors.New(i18n.Translate(lang, "user:The custom property lookup is not enabled; configure it on the built-in organization"))
 	}
 
 	allowed := false
@@ -141,7 +241,6 @@ func CheckCustomPropertyLookupAllowed(callerId string, clientIp string, lang str
 		return fmt.Errorf(i18n.Translate(lang, "user:The caller: %s is not allowed to look up users by custom property"), callerId)
 	}
 
-	ipWhitelist := strings.TrimSpace(conf.GetConfigString("customPropertyLookupIpWhitelist"))
 	if ipWhitelist == "" {
 		return nil
 	}
@@ -160,7 +259,7 @@ func CheckCustomPropertyLookupAllowed(callerId string, clientIp string, lang str
 		}
 	}
 
-	return fmt.Errorf(i18n.Translate(lang, "user:The client IP: %s is not in customPropertyLookupIpWhitelist"), clientIp)
+	return fmt.Errorf(i18n.Translate(lang, "user:The client IP: %s is not in the lookup IP whitelist"), clientIp)
 }
 
 // GetUsersByCustomProperty finds the users whose custom property `key` holds

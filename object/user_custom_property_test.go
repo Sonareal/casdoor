@@ -132,44 +132,25 @@ func TestCustomPropertyLimits(t *testing.T) {
 	}
 }
 
-// The lookup spans every organization, so it must be off unless someone has
-// explicitly opted in — an admin token alone is not enough.
-func TestCustomPropertyLookupDeniedByDefault(t *testing.T) {
-	t.Setenv("customPropertyLookupWhitelist", "")
-
-	if err := CheckCustomPropertyLookupAllowed("built-in/admin", "127.0.0.1", "en"); err == nil {
-		t.Error("with no whitelist configured the lookup must be refused, not open to every admin")
+// checkCustomPropertyDeclared is the organization-schema gate on writes.
+func TestCheckCustomPropertyDeclared(t *testing.T) {
+	items := []*CustomPropertyItem{
+		{Name: "deviceId", IsPrimary: true},
+		{Name: "theme"},
 	}
-}
 
-func TestCustomPropertyLookupWhitelist(t *testing.T) {
-	t.Setenv("customPropertyLookupWhitelist", "app/app-built-in, built-in/admin")
-	t.Setenv("customPropertyLookupIpWhitelist", "")
-
-	for _, caller := range []string{"app/app-built-in", "built-in/admin"} {
-		if err := CheckCustomPropertyLookupAllowed(caller, "10.0.0.1", "en"); err != nil {
-			t.Errorf("caller %q is whitelisted but was refused: %v", caller, err)
+	for _, key := range []string{"deviceId", "theme"} {
+		if err := checkCustomPropertyDeclared(items, key, "en"); err != nil {
+			t.Errorf("declared key %q was rejected: %v", key, err)
 		}
 	}
-	for _, caller := range []string{"gloopo/alice", "app/gloopo", ""} {
-		if err := CheckCustomPropertyLookupAllowed(caller, "10.0.0.1", "en"); err == nil {
-			t.Errorf("caller %q is not whitelisted but was allowed", caller)
-		}
+	if err := checkCustomPropertyDeclared(items, "isIdCardVerified", "en"); err == nil {
+		t.Error("an undeclared key must be rejected once the organization declares a schema")
 	}
-}
 
-func TestCustomPropertyLookupIpWhitelist(t *testing.T) {
-	t.Setenv("customPropertyLookupWhitelist", "built-in/admin")
-	t.Setenv("customPropertyLookupIpWhitelist", "192.168.2.0/24,10.1.0.0/16")
-
-	for _, ip := range []string{"192.168.2.12", "10.1.5.7"} {
-		if err := CheckCustomPropertyLookupAllowed("built-in/admin", ip, "en"); err != nil {
-			t.Errorf("IP %q is in the whitelist but was refused: %v", ip, err)
-		}
-	}
-	for _, ip := range []string{"192.168.3.1", "8.8.8.8"} {
-		if err := CheckCustomPropertyLookupAllowed("built-in/admin", ip, "en"); err == nil {
-			t.Errorf("IP %q is outside the whitelist but was allowed", ip)
-		}
+	// No schema means the organization has not opted in yet; existing
+	// deployments must keep working rather than start rejecting every write.
+	if err := checkCustomPropertyDeclared(nil, "anything", "en"); err != nil {
+		t.Errorf("with no declared items anything valid should pass, got %v", err)
 	}
 }

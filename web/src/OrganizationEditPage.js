@@ -25,6 +25,7 @@ import i18next from "i18next";
 import {LinkOutlined} from "@ant-design/icons";
 import LdapTable from "./table/LdapTable";
 import AccountTable from "./table/AccountTable";
+import CustomPropertyTable from "./table/CustomPropertyTable";
 import ThemeEditor from "./common/theme/ThemeEditor";
 import MfaTable from "./table/MfaTable";
 import {NavItemTree} from "./common/NavItemTree";
@@ -713,6 +714,50 @@ class OrganizationEditPage extends React.Component {
         </Row>
         <Row style={{marginTop: "20px"}} >
           <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+            {Setting.getLabel(i18next.t("organization:Custom properties"), i18next.t("organization:Custom properties - Tooltip"))} :
+          </Col>
+          <Col span={22} >
+            <CustomPropertyTable
+              title={i18next.t("organization:Custom properties")}
+              table={this.state.organization.customPropertyItems ?? []}
+              onUpdateTable={(value) => {this.updateOrganizationField("customPropertyItems", value);}}
+            />
+          </Col>
+        </Row>
+        {
+          // The reverse lookup spans every organization, so its access control is
+          // global and lives on the built-in organization only.
+          this.state.organization.name !== "built-in" ? null : (
+            <React.Fragment>
+              <Row style={{marginTop: "20px"}} >
+                <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+                  {Setting.getLabel(i18next.t("organization:Lookup caller whitelist"), i18next.t("organization:Lookup caller whitelist - Tooltip"))} :
+                </Col>
+                <Col span={22} >
+                  <Input
+                    value={this.state.organization.customPropertyLookupWhitelist}
+                    placeholder="app/app-built-in,built-in/admin"
+                    onChange={e => {this.updateOrganizationField("customPropertyLookupWhitelist", e.target.value);}}
+                  />
+                </Col>
+              </Row>
+              <Row style={{marginTop: "20px"}} >
+                <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+                  {Setting.getLabel(i18next.t("organization:Lookup IP whitelist"), i18next.t("organization:Lookup IP whitelist - Tooltip"))} :
+                </Col>
+                <Col span={22} >
+                  <Input
+                    value={this.state.organization.customPropertyLookupIpWhitelist}
+                    placeholder="192.168.2.0/24"
+                    onChange={e => {this.updateOrganizationField("customPropertyLookupIpWhitelist", e.target.value);}}
+                  />
+                </Col>
+              </Row>
+            </React.Fragment>
+          )
+        }
+        <Row style={{marginTop: "20px"}} >
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
             {Setting.getLabel(i18next.t("application:MFA remember time"), i18next.t("application:MFA remember time - Tooltip"))} :
           </Col>
           <Col span={22} >
@@ -857,6 +902,7 @@ class OrganizationEditPage extends React.Component {
   submitOrganizationEdit(exitAfterSave) {
     const organization = Setting.deepCopy(this.state.organization);
     organization.accountItems = organization.accountItems?.filter(accountItem => accountItem.name !== "Please select an account item");
+    organization.customPropertyItems = organization.customPropertyItems?.filter(item => (item.name ?? "").trim() !== "");
 
     const passwordObfuscatorErrorMessage = Obfuscator.checkPasswordObfuscator(organization.passwordObfuscatorType, organization.passwordObfuscatorKey);
     if (passwordObfuscatorErrorMessage.length > 0) {
