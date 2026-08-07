@@ -138,6 +138,8 @@
     "You can't unlink yourself, you are not a member of any application": "You can't unlink yourself, you are not a member of any application"
   },
   "organization": {
+    "Allowed values": "Allowed values",
+    "Comma-separated accepted values; leave empty for free text": "Comma-separated accepted values; leave empty for free text",
     "Custom properties": "Custom properties",
     "Custom properties - Tooltip": "Custom properties - Tooltip",
     "Device ID": "Device ID",
@@ -218,6 +220,7 @@
     "The custom property: %s is not declared in the organization settings": "The custom property: %s is not declared in the organization settings",
     "The new password must be different from your current password": "The new password must be different from your current password",
     "The value of the custom property: %s is too long (maximum is %d characters)": "The value of the custom property: %s is too long (maximum is %d characters)",
+    "The value of the custom property: %s must be one of: %s": "The value of the custom property: %s must be one of: %s",
     "User is already verified": "User is already verified",
     "the user's owner and name should not be empty": "the user's owner and name should not be empty"
   },

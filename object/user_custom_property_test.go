@@ -132,26 +132,66 @@ func TestCustomPropertyLimits(t *testing.T) {
 	}
 }
 
-// checkCustomPropertyDeclared is the organization-schema gate on writes.
-func TestCheckCustomPropertyDeclared(t *testing.T) {
+// checkCustomPropertyValue is the organization-schema gate on writes.
+func TestCheckCustomPropertyValueDeclaration(t *testing.T) {
 	items := []*CustomPropertyItem{
 		{Name: "deviceId", IsPrimary: true},
 		{Name: "theme"},
 	}
 
 	for _, key := range []string{"deviceId", "theme"} {
-		if err := checkCustomPropertyDeclared(items, key, "en"); err != nil {
+		if err := checkCustomPropertyValue(items, key, "anything", "en"); err != nil {
 			t.Errorf("declared key %q was rejected: %v", key, err)
 		}
 	}
-	if err := checkCustomPropertyDeclared(items, "isIdCardVerified", "en"); err == nil {
+	if err := checkCustomPropertyValue(items, "isIdCardVerified", "true", "en"); err == nil {
 		t.Error("an undeclared key must be rejected once the organization declares a schema")
 	}
 
 	// No schema means the organization has not opted in yet; existing
 	// deployments must keep working rather than start rejecting every write.
-	if err := checkCustomPropertyDeclared(nil, "anything", "en"); err != nil {
+	if err := checkCustomPropertyValue(nil, "anything", "x", "en"); err != nil {
 		t.Errorf("with no declared items anything valid should pass, got %v", err)
+	}
+}
+
+// An enumerated attribute that is not enforced ends up holding "zh", "zh-CN"
+// and "中文" for the same thing.
+func TestCheckCustomPropertyValueAllowedValues(t *testing.T) {
+	items := []*CustomPropertyItem{
+		{Name: "language", AllowedValues: "zh,en"},
+		{Name: "mode", AllowedValues: "youth, child"},
+		{Name: "deviceId"}, // free text
+	}
+
+	accepted := map[string]string{"language": "zh", "mode": "child"}
+	for key, value := range accepted {
+		if err := checkCustomPropertyValue(items, key, value, "en"); err != nil {
+			t.Errorf("%s=%q is allowed but was rejected: %v", key, value, err)
+		}
+	}
+	// Spacing in the declaration must not leak into the comparison.
+	if err := checkCustomPropertyValue(items, "mode", "youth", "en"); err != nil {
+		t.Errorf("a declaration written with spaces must still match: %v", err)
+	}
+
+	rejected := []struct{ key, value string }{
+		{"language", "中文"},    // the localized label, not the value
+		{"mode", "儿童"},        //
+		{"language", "zh-CN"}, // a near miss
+		{"language", "ZH"},    // matching is exact, not case-insensitive
+		{"language", ""},      // empty is not a member of the set
+		{"mode", "adult"},     // plausible but undeclared
+	}
+	for _, c := range rejected {
+		if err := checkCustomPropertyValue(items, c.key, c.value, "en"); err == nil {
+			t.Errorf("%s=%q is not in the allowed set but was accepted", c.key, c.value)
+		}
+	}
+
+	// An item with no declared values stays free text.
+	if err := checkCustomPropertyValue(items, "deviceId", "DEV-ANYTHING-123", "en"); err != nil {
+		t.Errorf("an item without allowed values must stay free text, got %v", err)
 	}
 }
 

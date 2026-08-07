@@ -46,7 +46,7 @@ class CustomPropertyTable extends React.Component {
   }
 
   addRow(table) {
-    const row = {name: "", displayName: "", description: "", isPrimary: false};
+    const row = {name: "", displayName: "", description: "", allowedValues: "", isPrimary: false};
     if (table === undefined) {
       table = [];
     }
@@ -101,6 +101,23 @@ class CustomPropertyTable extends React.Component {
           <Input
             value={text}
             onChange={e => {this.updateField(table, index, "description", e.target.value);}}
+          />
+        ),
+      },
+      {
+        title: (
+          <Tooltip placement="top" title={i18next.t("organization:Comma-separated accepted values; leave empty for free text")}>
+            {i18next.t("organization:Allowed values")}
+          </Tooltip>
+        ),
+        dataIndex: "allowedValues",
+        key: "allowedValues",
+        width: "200px",
+        render: (text, record, index) => (
+          <Input
+            value={text}
+            placeholder="zh,en"
+            onChange={e => {this.updateField(table, index, "allowedValues", e.target.value);}}
           />
         ),
       },

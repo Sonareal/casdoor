@@ -56,7 +56,12 @@ type CustomPropertyItem struct {
 	Name        string `json:"name"`
 	DisplayName string `json:"displayName"`
 	Description string `json:"description"`
-	IsPrimary   bool   `json:"isPrimary"`
+	// Comma-separated set of accepted values. Empty means free text. Declaring
+	// it turns a convention into a constraint: an enumerated attribute that is
+	// not enforced ends up holding "zh", "zh-CN" and "中文" for the same thing,
+	// and the back office has to guess which the client meant.
+	AllowedValues string `json:"allowedValues"`
+	IsPrimary     bool   `json:"isPrimary"`
 }
 
 const (
@@ -109,7 +114,7 @@ func SetUserCustomProperties(user *User, updates map[string]*string, lang string
 		// possible, otherwise removing an item from the schema would strand
 		// the values already stored under it.
 		if value != nil {
-			if err := checkCustomPropertyDeclared(items, key, lang); err != nil {
+			if err := checkCustomPropertyValue(items, key, *value, lang); err != nil {
 				return nil, err
 			}
 		}
@@ -152,19 +157,37 @@ func GetCustomPropertyItems(owner string) ([]*CustomPropertyItem, error) {
 	return organization.CustomPropertyItems, nil
 }
 
-// checkCustomPropertyDeclared enforces the organization's schema on a write.
+// checkCustomPropertyValue enforces the organization's schema on a write: the
+// key must be declared, and the value must be one the item accepts.
+//
 // An organization with no declared items accepts anything valid, which keeps
 // existing deployments working until someone fills the table in.
-func checkCustomPropertyDeclared(items []*CustomPropertyItem, key string, lang string) error {
+func checkCustomPropertyValue(items []*CustomPropertyItem, key string, value string, lang string) error {
 	if len(items) == 0 {
 		return nil
 	}
+
+	var declared *CustomPropertyItem
 	for _, item := range items {
 		if item != nil && item.Name == key {
+			declared = item
+			break
+		}
+	}
+	if declared == nil {
+		return fmt.Errorf(i18n.Translate(lang, "user:The custom property: %s is not declared in the organization settings"), key)
+	}
+
+	allowedValues := strings.TrimSpace(declared.AllowedValues)
+	if allowedValues == "" {
+		return nil
+	}
+	for _, allowed := range strings.Split(allowedValues, ",") {
+		if strings.TrimSpace(allowed) == value {
 			return nil
 		}
 	}
-	return fmt.Errorf(i18n.Translate(lang, "user:The custom property: %s is not declared in the organization settings"), key)
+	return fmt.Errorf(i18n.Translate(lang, "user:The value of the custom property: %s must be one of: %s"), key, allowedValues)
 }
 
 func isCallerWhitelisted(whitelist string, callerId string) bool {

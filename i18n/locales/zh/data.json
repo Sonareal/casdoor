@@ -138,6 +138,8 @@
     "You can't unlink yourself, you are not a member of any application": "您无法自行解绑，您不是任何应用程序的成员"
   },
   "organization": {
+    "Allowed values": "允许值",
+    "Comma-separated accepted values; leave empty for free text": "允许的取值，逗号分隔，如 zh,en。留空表示不限制（自由文本）。填了之后 APP 传别的值会被拒绝。",
     "Custom properties": "自定义属性",
     "Custom properties - Tooltip": "本组织允许用户设置的自定义属性；留空表示不限制。勾选“反查主键”的那一项才能被后台按值反查账号 —— 且只在本组织范围内。",
     "Device ID": "设备 ID",
@@ -218,6 +220,7 @@
     "The custom property: %s is not declared in the organization settings": "自定义属性 %s 未在组织设置中声明",
     "The new password must be different from your current password": "新密码必须与您当前的密码不同",
     "The value of the custom property: %s is too long (maximum is %d characters)": "自定义属性 %s 的值过长（最多 %d 个字符）",
+    "The value of the custom property: %s must be one of: %s": "自定义属性 %s 的值必须是以下之一：%s",
     "User is already verified": "用户已验证",
     "the user's owner and name should not be empty": "用户的组织和名称不能为空"
   },
