@@ -69,6 +69,29 @@ func (c *ApiController) resolveCustomPropertyTarget() (*object.User, bool) {
 
 	id := c.Ctx.Input.Query("id")
 
+	// Accept the account UUID too, since that is what the reverse lookup shows
+	// most prominently; resolving it here saves the caller from having to
+	// rebuild an "owner/name" string.
+	if id == "" {
+		if uuid := c.Ctx.Input.Query("userId"); uuid != "" {
+			owner := c.Ctx.Input.Query("owner")
+			if owner == "" {
+				c.ResponseError(c.T("general:Missing parameter") + ": owner")
+				return nil, false
+			}
+			target, err := object.GetUserByUserId(owner, uuid)
+			if err != nil {
+				c.ResponseError(err.Error())
+				return nil, false
+			}
+			if target == nil {
+				c.ResponseError(fmt.Sprintf(c.T("general:The user: %s doesn't exist"), owner+"/"+uuid))
+				return nil, false
+			}
+			id = target.GetId()
+		}
+	}
+
 	// An application credential (clientId/clientSecret) authenticates as
 	// "app/<name>", which is not a row in the user table. Such a caller has no
 	// "self" to default to, so it has to name the target explicitly — this is
@@ -210,8 +233,12 @@ func (c *ApiController) GetUsersByCustomProperty() {
 	}
 
 	type match struct {
-		Owner            string                            `json:"owner"`
-		Name             string                            `json:"name"`
+		Owner string `json:"owner"`
+		Name  string `json:"name"`
+		// The identifier to pass straight back to ?id= when writing. "id" below
+		// is the account UUID, which reads like the thing to use but is not —
+		// spelling both out saves a round of guessing.
+		UserId           string                            `json:"userId"`
 		Id               string                            `json:"id"`
 		DisplayName      string                            `json:"displayName"`
 		MatchedAt        string                            `json:"matchedAt"`
@@ -223,6 +250,7 @@ func (c *ApiController) GetUsersByCustomProperty() {
 		matches = append(matches, &match{
 			Owner:            user.Owner,
 			Name:             user.Name,
+			UserId:           user.GetId(),
 			Id:               user.Id,
 			DisplayName:      user.DisplayName,
 			MatchedAt:        user.CustomProperties[key].UpdatedTime,

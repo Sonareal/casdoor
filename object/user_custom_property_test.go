@@ -238,3 +238,17 @@ func TestIsIpAllowed(t *testing.T) {
 		t.Error("a malformed CIDR must be skipped, not abort the whole check")
 	}
 }
+
+func TestUserTableNameUsesConfiguredPrefix(t *testing.T) {
+	// The compare-and-swap is the one place using raw SQL, so it has to respect
+	// tableNamePrefix rather than hardcoding "user".
+	t.Setenv("tableNamePrefix", "casdoor_")
+	if got := userTableName(); got != "casdoor_user" {
+		t.Errorf("userTableName() = %q, want %q", got, "casdoor_user")
+	}
+
+	t.Setenv("tableNamePrefix", "")
+	if got := userTableName(); got != "user" {
+		t.Errorf("userTableName() = %q, want %q", got, "user")
+	}
+}

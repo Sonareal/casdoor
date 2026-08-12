@@ -15,15 +15,17 @@
 package object
 
 import (
+	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net"
 	"regexp"
 	"sort"
 	"strings"
 
+	"github.com/casdoor/casdoor/conf"
 	"github.com/casdoor/casdoor/i18n"
 	"github.com/casdoor/casdoor/util"
-	"github.com/xorm-io/core"
 )
 
 // Custom properties are application-defined key/value pairs a user may set on
@@ -84,9 +86,33 @@ func validateCustomPropertyKey(key string, lang string) error {
 	return nil
 }
 
+// userTableName is the user table with the configured prefix applied, for the
+// one place that needs raw SQL.
+func userTableName() string {
+	return conf.GetConfigString("tableNamePrefix") + "user"
+}
+
+// maxCustomPropertyWriteAttempts bounds the compare-and-swap retry. Contention
+// on one account is between that user's app and a back-office call, so a
+// handful of attempts is far more than enough; the bound exists so a pathological
+// case fails loudly instead of spinning.
+const maxCustomPropertyWriteAttempts = 8
+
 // SetUserCustomProperties merges updates into the user's custom properties and
 // persists them. A nil value deletes the key, which is how a client removes an
 // attribute without a separate endpoint.
+//
+// Custom properties share one column, so any write rewrites all of them. Merging
+// onto whatever the caller loaded earlier would let two concurrent writers drop
+// each other's changes — the back office setting a MAC address while the app
+// sets a language, and one of the two silently vanishing.
+//
+// So the write is a compare-and-swap: re-read the column, merge onto that, and
+// update only if the stored value is still what we read. A racing writer that
+// got there first makes the swap affect zero rows, and we retry against its
+// result. This is done in SQL rather than with SELECT ... FOR UPDATE so the
+// guarantee does not depend on the database supporting row locks — SQLite, used
+// for local testing, does not.
 //
 // Returns the resulting property map.
 func SetUserCustomProperties(user *User, updates map[string]*string, lang string) (map[string]*CustomProperty, error) {
@@ -94,53 +120,125 @@ func SetUserCustomProperties(user *User, updates map[string]*string, lang string
 		return nil, fmt.Errorf("the user is nil")
 	}
 
-	merged := map[string]*CustomProperty{}
-	for key, property := range user.CustomProperties {
-		merged[key] = property
-	}
-
+	// Validate before touching the database: a bad value should be rejected the
+	// same way regardless of contention.
 	items, err := GetCustomPropertyItems(user.Owner)
 	if err != nil {
 		return nil, err
 	}
-
-	now := util.GetCurrentTime()
 	for key, value := range updates {
 		key = strings.TrimSpace(key)
 		if err := validateCustomPropertyKey(key, lang); err != nil {
 			return nil, err
 		}
-		// Deleting a key the organization no longer declares must stay
-		// possible, otherwise removing an item from the schema would strand
-		// the values already stored under it.
-		if value != nil {
-			if err := checkCustomPropertyValue(items, key, *value, lang); err != nil {
-				return nil, err
-			}
-		}
-
 		if value == nil {
-			delete(merged, key)
+			// Deleting a key the organization no longer declares must stay
+			// possible, otherwise removing an item from the schema would strand
+			// the values already stored under it.
 			continue
 		}
 		if len(*value) > MaxCustomPropertyValueLength {
 			return nil, fmt.Errorf(i18n.Translate(lang, "user:The value of the custom property: %s is too long (maximum is %d characters)"), key, MaxCustomPropertyValueLength)
 		}
-
-		merged[key] = &CustomProperty{Value: *value, UpdatedTime: now}
+		if err := checkCustomPropertyValue(items, key, *value, lang); err != nil {
+			return nil, err
+		}
 	}
 
-	if len(merged) > MaxCustomPropertyCount {
-		return nil, fmt.Errorf(i18n.Translate(lang, "user:A user may have at most %d custom properties"), MaxCustomPropertyCount)
+	for attempt := 0; attempt < maxCustomPropertyWriteAttempts; attempt++ {
+		stored, err := readRawCustomProperties(user.Owner, user.Name)
+		if err != nil {
+			return nil, err
+		}
+
+		current := map[string]*CustomProperty{}
+		if strings.TrimSpace(stored) != "" {
+			if err := json.Unmarshal([]byte(stored), &current); err != nil {
+				return nil, err
+			}
+		}
+
+		merged := map[string]*CustomProperty{}
+		for key, property := range current {
+			merged[key] = property
+		}
+
+		now := util.GetCurrentTime()
+		for key, value := range updates {
+			key = strings.TrimSpace(key)
+			if value == nil {
+				delete(merged, key)
+				continue
+			}
+			merged[key] = &CustomProperty{Value: *value, UpdatedTime: now}
+		}
+
+		if len(merged) > MaxCustomPropertyCount {
+			return nil, fmt.Errorf(i18n.Translate(lang, "user:A user may have at most %d custom properties"), MaxCustomPropertyCount)
+		}
+
+		encoded, err := json.Marshal(merged)
+		if err != nil {
+			return nil, err
+		}
+
+		swapped, err := swapCustomProperties(user.Owner, user.Name, stored, string(encoded))
+		if err != nil {
+			return nil, err
+		}
+		if swapped {
+			user.CustomProperties = merged
+			return merged, nil
+		}
+		// Someone else committed between the read and the swap; retry against
+		// their result rather than overwriting it.
 	}
 
-	user.CustomProperties = merged
-	if _, err := ormer.Engine.ID(core.PK{user.Owner, user.Name}).
-		Cols("custom_properties").Update(user); err != nil {
-		return nil, err
+	return nil, fmt.Errorf(i18n.Translate(lang, "user:The custom properties are being updated too frequently, please retry"))
+}
+
+// readRawCustomProperties reads the column as stored, so the compare in
+// swapCustomProperties is against the exact bytes rather than a re-encoding
+// (map key order is not stable, so a round-trip would not compare equal).
+func readRawCustomProperties(owner string, name string) (string, error) {
+	results, err := ormer.Engine.QueryString(
+		"SELECT custom_properties FROM "+userTableName()+" WHERE owner = ? AND name = ?", owner, name)
+	if err != nil {
+		return "", err
+	}
+	if len(results) == 0 {
+		return "", fmt.Errorf("the user: %s/%s is not found", owner, name)
+	}
+	return results[0]["custom_properties"], nil
+}
+
+// swapCustomProperties writes newValue only if the column still holds oldValue.
+// Reports whether the swap happened.
+func swapCustomProperties(owner string, name string, oldValue string, newValue string) (bool, error) {
+	var (
+		result sql.Result
+		err    error
+	)
+	// A NULL column never compares equal with "=", so the two cases need
+	// different SQL. A fresh user has NULL here until the first write.
+	if oldValue == "" {
+		result, err = ormer.Engine.Exec(
+			"UPDATE "+userTableName()+" SET custom_properties = ? WHERE owner = ? AND name = ? AND (custom_properties IS NULL OR custom_properties = '')",
+			newValue, owner, name)
+	} else {
+		result, err = ormer.Engine.Exec(
+			"UPDATE "+userTableName()+" SET custom_properties = ? WHERE owner = ? AND name = ? AND custom_properties = ?",
+			newValue, owner, name, oldValue)
+	}
+	if err != nil {
+		return false, err
 	}
 
-	return merged, nil
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return affected > 0, nil
 }
 
 // GetCustomPropertyItems returns the attribute schema an organization declares.
