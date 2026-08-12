@@ -213,6 +213,7 @@
     "No application found for user": "未找到用户的应用程序",
     "The caller: %s is not allowed to look up users by custom property": "调用方 %s 不在自定义属性反查白名单内",
     "The client IP: %s is not in the lookup IP whitelist": "来源 IP %s 不在反查 IP 白名单内",
+    "The custom properties are being updated too frequently, please retry": "自定义属性更新过于频繁，请重试",
     "The custom property key is too long (maximum is %d characters)": "自定义属性名过长（最多 %d 个字符）",
     "The custom property key: %s is invalid, it may only contain letters, digits, and the characters _ . -": "自定义属性名 %s 不合法，只能包含字母、数字和 _ . - ",
     "The custom property lookup is not enabled; configure it on the built-in organization": "自定义属性反查未启用；请在 built-in 组织的设置里配置白名单",

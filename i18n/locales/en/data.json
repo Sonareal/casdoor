@@ -213,6 +213,7 @@
     "No application found for user": "No application found for user",
     "The caller: %s is not allowed to look up users by custom property": "The caller: %s is not allowed to look up users by custom property",
     "The client IP: %s is not in the lookup IP whitelist": "The client IP: %s is not in the lookup IP whitelist",
+    "The custom properties are being updated too frequently, please retry": "The custom properties are being updated too frequently, please retry",
     "The custom property key is too long (maximum is %d characters)": "The custom property key is too long (maximum is %d characters)",
     "The custom property key: %s is invalid, it may only contain letters, digits, and the characters _ . -": "The custom property key: %s is invalid, it may only contain letters, digits, and the characters _ . -",
     "The custom property lookup is not enabled; configure it on the built-in organization": "The custom property lookup is not enabled; configure it on the built-in organization",

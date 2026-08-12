@@ -17,6 +17,7 @@ package object
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"regexp"
@@ -194,7 +195,7 @@ func SetUserCustomProperties(user *User, updates map[string]*string, lang string
 		// their result rather than overwriting it.
 	}
 
-	return nil, fmt.Errorf(i18n.Translate(lang, "user:The custom properties are being updated too frequently, please retry"))
+	return nil, errors.New(i18n.Translate(lang, "user:The custom properties are being updated too frequently, please retry"))
 }
 
 // readRawCustomProperties reads the column as stored, so the compare in
