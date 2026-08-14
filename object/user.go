@@ -229,9 +229,10 @@ type User struct {
 	Ldap       string            `xorm:"ldap varchar(100)" json:"ldap"`
 	Properties map[string]string `json:"properties"`
 
-	// Application-defined attributes the user may set on themselves. Kept out
-	// of Properties above, which the server owns — see user_custom_property.go.
-	CustomProperties map[string]*CustomProperty `xorm:"mediumtext" json:"customProperties"`
+	// Device-scoped application attributes: device identifier (a MAC) -> the
+	// attributes recorded for this account on that device. Kept out of
+	// Properties above, which the server owns — see user_custom_property.go.
+	CustomProperties map[string]DeviceProperties `xorm:"mediumtext" json:"customProperties"`
 
 	ThirdPartyLinks []*ThirdPartyLink `xorm:"-" json:"thirdPartyLinks,omitempty"`
 

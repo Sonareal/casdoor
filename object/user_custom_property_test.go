@@ -63,66 +63,6 @@ func TestEscapeLikePattern(t *testing.T) {
 	}
 }
 
-// mergeCustomProperties mirrors what SetUserCustomProperties does in memory,
-// so the merge semantics can be tested without a database.
-func mergeForTest(t *testing.T, existing map[string]*CustomProperty, updates map[string]*string) map[string]*CustomProperty {
-	t.Helper()
-
-	merged := map[string]*CustomProperty{}
-	for k, v := range existing {
-		merged[k] = v
-	}
-	for key, value := range updates {
-		if value == nil {
-			delete(merged, key)
-			continue
-		}
-		merged[key] = &CustomProperty{Value: *value, UpdatedTime: "2026-07-29T00:00:00+08:00"}
-	}
-	return merged
-}
-
-func strptr(s string) *string { return &s }
-
-func TestCustomPropertyMergeSemantics(t *testing.T) {
-	existing := map[string]*CustomProperty{
-		"deviceId": {Value: "old-device", UpdatedTime: "2026-01-01T00:00:00+08:00"},
-		"theme":    {Value: "dark", UpdatedTime: "2026-01-01T00:00:00+08:00"},
-	}
-
-	// A write touches only the keys it mentions.
-	merged := mergeForTest(t, existing, map[string]*string{"deviceId": strptr("new-device")})
-	if merged["deviceId"].Value != "new-device" {
-		t.Errorf("expected deviceId to be updated, got %q", merged["deviceId"].Value)
-	}
-	if merged["theme"].Value != "dark" {
-		t.Error("an unmentioned key must be left alone")
-	}
-	if merged["deviceId"].UpdatedTime == existing["deviceId"].UpdatedTime {
-		t.Error("updatedTime must be re-stamped on write")
-	}
-	if merged["theme"].UpdatedTime != existing["theme"].UpdatedTime {
-		t.Error("an unmentioned key must keep its original updatedTime")
-	}
-
-	// A null value deletes.
-	merged = mergeForTest(t, existing, map[string]*string{"theme": nil})
-	if _, ok := merged["theme"]; ok {
-		t.Error("a null value must delete the key")
-	}
-	if _, ok := merged["deviceId"]; !ok {
-		t.Error("deleting one key must not remove the others")
-	}
-
-	// An empty string is a value, not a deletion.
-	merged = mergeForTest(t, existing, map[string]*string{"theme": strptr("")})
-	if property, ok := merged["theme"]; !ok {
-		t.Error("an empty string must set the key, not delete it")
-	} else if property.Value != "" {
-		t.Errorf("expected an empty value, got %q", property.Value)
-	}
-}
-
 func TestCustomPropertyLimits(t *testing.T) {
 	if MaxCustomPropertyCount <= 0 || MaxCustomPropertyKeyLength <= 0 || MaxCustomPropertyValueLength <= 0 {
 		t.Fatal("the limits must be positive; they are the only thing bounding what a user can store")
@@ -135,7 +75,7 @@ func TestCustomPropertyLimits(t *testing.T) {
 // checkCustomPropertyValue is the organization-schema gate on writes.
 func TestCheckCustomPropertyValueDeclaration(t *testing.T) {
 	items := []*CustomPropertyItem{
-		{Name: "deviceId", IsPrimary: true},
+		{Name: "deviceId"},
 		{Name: "theme"},
 	}
 
@@ -250,69 +190,5 @@ func TestUserTableNameUsesConfiguredPrefix(t *testing.T) {
 	t.Setenv("tableNamePrefix", "")
 	if got := userTableName(); got != "user" {
 		t.Errorf("userTableName() = %q, want %q", got, "user")
-	}
-}
-
-func TestSplitCustomPropertyValues(t *testing.T) {
-	cases := map[string][]string{
-		"AA,BB":     {"AA", "BB"},
-		" AA , BB ": {"AA", "BB"},
-		"AA":        {"AA"},
-		"":          {},
-		",,":        {},
-		"AA,,BB,":   {"AA", "BB"},
-	}
-	for in, want := range cases {
-		got := splitCustomPropertyValues(in)
-		if len(got) != len(want) {
-			t.Errorf("splitCustomPropertyValues(%q) = %v, want %v", in, got, want)
-			continue
-		}
-		for i := range got {
-			if got[i] != want[i] {
-				t.Errorf("splitCustomPropertyValues(%q) = %v, want %v", in, got, want)
-				break
-			}
-		}
-	}
-}
-
-// Appending is what keeps two writers from erasing each other: each records its
-// own device and both survive.
-func TestUnionCustomPropertyValues(t *testing.T) {
-	cases := []struct{ existing, incoming, want string }{
-		{"", "AA", "AA"},
-		{"AA", "BB", "AA,BB"},
-		{"AA,BB", "CC", "AA,BB,CC"},
-		{"AA,BB", "AA", "AA,BB"},       // exact duplicate is not appended twice
-		{"AA,BB", "BB,CC", "AA,BB,CC"}, // partial overlap
-		{"AA", " AA ", "AA"},           // spacing does not create a duplicate
-		{"AA", "", "AA"},               // nothing to add
-		{"AA,BB", "AA,BB", "AA,BB"},    // idempotent
-	}
-	for _, c := range cases {
-		if got := unionCustomPropertyValues(c.existing, c.incoming); got != c.want {
-			t.Errorf("union(%q, %q) = %q, want %q", c.existing, c.incoming, got, c.want)
-		}
-	}
-}
-
-// Each item of a multi-value write has to be a member of the allowed set.
-func TestCheckCustomPropertyValueMultiValueEnum(t *testing.T) {
-	items := []*CustomPropertyItem{
-		{Name: "tags", AllowedValues: "a,b,c", IsMultiValue: true},
-		{Name: "single", AllowedValues: "a,b"},
-	}
-
-	if err := checkCustomPropertyValue(items, "tags", "a,c", "en"); err != nil {
-		t.Errorf("every item is allowed, so the write should pass: %v", err)
-	}
-	if err := checkCustomPropertyValue(items, "tags", "a,z", "en"); err == nil {
-		t.Error("one disallowed item must reject the whole write")
-	}
-	// A single-value attribute must not start accepting a comma-joined string
-	// just because the parts are individually allowed.
-	if err := checkCustomPropertyValue(items, "single", "a,b", "en"); err == nil {
-		t.Error("a single-value attribute must compare the value whole")
 	}
 }

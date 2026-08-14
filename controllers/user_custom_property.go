@@ -61,6 +61,7 @@ func clientIpForIpWhitelist(req *http.Request) string {
 // with a plain user token. With "id" it is someone else, which only an admin
 // may do.
 func (c *ApiController) resolveCustomPropertyTarget() (*object.User, bool) {
+	// isSelf is decided by the caller, see SetCustomProperties.
 	callerId := c.GetSessionUsername()
 	if callerId == "" {
 		c.ResponseError(c.T("general:Please login first"))
@@ -149,7 +150,7 @@ func (c *ApiController) GetCustomProperties() {
 
 	properties := user.CustomProperties
 	if properties == nil {
-		properties = map[string]*object.CustomProperty{}
+		properties = map[string]object.DeviceProperties{}
 	}
 	c.ResponseOk(properties)
 }
@@ -181,10 +182,18 @@ func (c *ApiController) SetCustomProperties() {
 		return
 	}
 
-	// Multi-value attributes append by default; replace=true hands the whole
-	// list over to the caller instead.
-	replace := c.Ctx.Input.Query("replace") == "true"
-	properties, err := object.SetUserCustomProperties(user, updates, replace, c.GetAcceptLanguage())
+	device := c.Ctx.Input.Query("mac")
+	if device == "" {
+		device = c.Ctx.Input.Query("device")
+	}
+
+	// The account's own token is recording activity, so its writes stamp the
+	// time. Anything else — an application credential, or an admin editing
+	// someone else — is the back office correcting data, and must leave the
+	// timestamp showing when the user was last actually there.
+	refreshTime := user.GetId() == c.GetSessionUsername()
+
+	properties, err := object.SetUserDeviceProperties(user, device, updates, refreshTime, c.GetAcceptLanguage())
 	if err != nil {
 		c.ResponseError(err.Error())
 		return
@@ -215,50 +224,26 @@ func (c *ApiController) GetUsersByCustomProperty() {
 
 	// owner is optional: empty means every organization the caller is allowed in.
 	owner := c.Ctx.Input.Query("owner")
-	key := c.Ctx.Input.Query("key")
-	value := c.Ctx.Input.Query("value")
-	if key == "" || value == "" {
-		c.ResponseError(c.T("general:Missing parameter"))
+	device := c.Ctx.Input.Query("mac")
+	if device == "" {
+		device = c.Ctx.Input.Query("device")
+	}
+	if err := object.ValidateDeviceId(device, c.GetAcceptLanguage()); err != nil {
+		c.ResponseError(err.Error())
 		return
 	}
 
 	clientIp := clientIpForIpWhitelist(c.Ctx.Request)
-	scope, err := object.ResolveCustomPropertyLookupScope(c.GetSessionUsername(), clientIp, key, owner, c.GetAcceptLanguage())
+	scope, err := object.ResolveCustomPropertyLookupScope(c.GetSessionUsername(), clientIp, owner, c.GetAcceptLanguage())
 	if err != nil {
 		c.ResponseError(err.Error())
 		return
 	}
 
-	users, err := object.GetUsersByCustomProperty(scope, key, value)
+	matches, err := object.GetUsersByDevice(scope, device)
 	if err != nil {
 		c.ResponseError(err.Error())
 		return
-	}
-
-	type match struct {
-		Owner string `json:"owner"`
-		Name  string `json:"name"`
-		// The identifier to pass straight back to ?id= when writing. "id" below
-		// is the account UUID, which reads like the thing to use but is not —
-		// spelling both out saves a round of guessing.
-		UserId           string                            `json:"userId"`
-		Id               string                            `json:"id"`
-		DisplayName      string                            `json:"displayName"`
-		MatchedAt        string                            `json:"matchedAt"`
-		CustomProperties map[string]*object.CustomProperty `json:"customProperties"`
-	}
-
-	matches := []*match{}
-	for _, user := range users {
-		matches = append(matches, &match{
-			Owner:            user.Owner,
-			Name:             user.Name,
-			UserId:           user.GetId(),
-			Id:               user.Id,
-			DisplayName:      user.DisplayName,
-			MatchedAt:        user.CustomProperties[key].UpdatedTime,
-			CustomProperties: user.CustomProperties,
-		})
 	}
 
 	c.ResponseOk(matches, len(matches))

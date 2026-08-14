@@ -147,11 +147,7 @@
     "Lookup IP whitelist - Tooltip": "Lookup IP whitelist - Tooltip",
     "Lookup caller whitelist": "Lookup caller whitelist",
     "Lookup caller whitelist - Tooltip": "Lookup caller whitelist - Tooltip",
-    "Lookup key": "Lookup key",
-    "Multi-value": "Multi-value",
     "Only admin can modify the %s.": "Only admin can modify the %s.",
-    "Only the primary property can be searched by the back office lookup API": "Only the primary property can be searched by the back office lookup API",
-    "Store a comma-separated set; writes append and the lookup matches any single item": "Store a comma-separated set; writes append and the lookup matches any single item",
     "The %s is immutable.": "The %s is immutable.",
     "Unknown modify rule %s.": "Unknown modify rule %s.",
     "adding a new user to the 'built-in' organization is currently disabled. Please note: all users in the 'built-in' organization are global administrators in Casdoor. Refer to the docs: https://casdoor.org/docs/basic/core-concepts#how-does-casdoor-manage-itself. If you still wish to create a user for the 'built-in' organization, go to the organization's settings page and enable the 'Has privilege consent' option.": "adding a new user to the 'built-in' organization is currently disabled. Please note: all users in the 'built-in' organization are global administrators in Casdoor. Refer to the docs: https://casdoor.org/docs/basic/core-concepts#how-does-casdoor-manage-itself. If you still wish to create a user for the 'built-in' organization, go to the organization's settings page and enable the 'Has privilege consent' option."
@@ -206,6 +202,7 @@
   },
   "user": {
     "A user may have at most %d custom properties": "A user may have at most %d custom properties",
+    "A user may have at most %d devices": "A user may have at most %d devices",
     "Display name cannot be empty": "Display name cannot be empty",
     "ID card information and real name are required": "ID card information and real name are required",
     "Identity verification failed": "Identity verification failed",
@@ -221,6 +218,8 @@
     "The custom property lookup is not enabled; configure it on the built-in organization": "The custom property lookup is not enabled; configure it on the built-in organization",
     "The custom property: %s is not configured as a primary key for lookup": "The custom property: %s is not configured as a primary key for lookup",
     "The custom property: %s is not declared in the organization settings": "The custom property: %s is not declared in the organization settings",
+    "The device identifier is required": "The device identifier is required",
+    "The device identifier: %s is invalid, it may only contain letters, digits, and the characters _ . : -": "The device identifier: %s is invalid, it may only contain letters, digits, and the characters _ . : -",
     "The new password must be different from your current password": "The new password must be different from your current password",
     "The value of the custom property: %s is too long (maximum is %d characters)": "The value of the custom property: %s is too long (maximum is %d characters)",
     "The value of the custom property: %s must be one of: %s": "The value of the custom property: %s must be one of: %s",

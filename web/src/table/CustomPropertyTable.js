@@ -14,12 +14,13 @@
 
 import React from "react";
 import {DeleteOutlined, DownOutlined, UpOutlined} from "@ant-design/icons";
-import {Button, Col, Input, Radio, Row, Switch, Table, Tooltip} from "antd";
+import {Button, Col, Input, Row, Table, Tooltip} from "antd";
 import * as Setting from "../Setting";
 import i18next from "i18next";
 
-// Declares which custom properties an organization accepts on its users, and
-// which single one the back office may search accounts by.
+// Declares which attributes an organization accepts on a user's devices. The
+// reverse lookup is always by device identifier, so no attribute needs to be
+// singled out as searchable.
 class CustomPropertyTable extends React.Component {
   constructor(props) {
     super(props);
@@ -35,18 +36,8 @@ class CustomPropertyTable extends React.Component {
     this.updateTable(table);
   }
 
-  // Only one property can be the lookup key, so selecting one clears the rest.
-  // Enforced here rather than left to the operator: two primaries would make
-  // "which key does the back office search by" ambiguous.
-  setPrimary(table, index) {
-    table.forEach((row, i) => {
-      row.isPrimary = i === index;
-    });
-    this.updateTable(table);
-  }
-
   addRow(table) {
-    const row = {name: "", displayName: "", description: "", allowedValues: "", isMultiValue: false, isPrimary: false};
+    const row = {name: "", displayName: "", description: "", allowedValues: ""};
     if (table === undefined) {
       table = [];
     }
@@ -118,38 +109,6 @@ class CustomPropertyTable extends React.Component {
             value={text}
             placeholder="zh,en"
             onChange={e => {this.updateField(table, index, "allowedValues", e.target.value);}}
-          />
-        ),
-      },
-      {
-        title: (
-          <Tooltip placement="top" title={i18next.t("organization:Store a comma-separated set; writes append and the lookup matches any single item")}>
-            {i18next.t("organization:Multi-value")}
-          </Tooltip>
-        ),
-        dataIndex: "isMultiValue",
-        key: "isMultiValue",
-        width: "100px",
-        render: (text, record, index) => (
-          <Switch
-            checked={!!text}
-            onChange={checked => {this.updateField(table, index, "isMultiValue", checked);}}
-          />
-        ),
-      },
-      {
-        title: (
-          <Tooltip placement="top" title={i18next.t("organization:Only the primary property can be searched by the back office lookup API")}>
-            {i18next.t("organization:Lookup key")}
-          </Tooltip>
-        ),
-        dataIndex: "isPrimary",
-        key: "isPrimary",
-        width: "110px",
-        render: (text, record, index) => (
-          <Radio
-            checked={!!text}
-            onChange={() => {this.setPrimary(table, index);}}
           />
         ),
       },
