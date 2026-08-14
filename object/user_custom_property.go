@@ -64,7 +64,52 @@ type CustomPropertyItem struct {
 	// not enforced ends up holding "zh", "zh-CN" and "中文" for the same thing,
 	// and the back office has to guess which the client meant.
 	AllowedValues string `json:"allowedValues"`
-	IsPrimary     bool   `json:"isPrimary"`
+	// A multi-value attribute holds a set of comma-separated items rather than
+	// one value: an account accumulates the devices it has been seen on. The
+	// reverse lookup matches any single item exactly, which a plain joined
+	// string could not do — searching for one MAC would not match "AA,BB".
+	IsMultiValue bool `json:"isMultiValue"`
+	IsPrimary    bool `json:"isPrimary"`
+}
+
+// splitCustomPropertyValues splits a stored multi-value string into its items,
+// dropping blanks. Matching between items is exact.
+func splitCustomPropertyValues(value string) []string {
+	items := []string{}
+	for _, item := range strings.Split(value, ",") {
+		item = strings.TrimSpace(item)
+		if item != "" {
+			items = append(items, item)
+		}
+	}
+	return items
+}
+
+// unionCustomPropertyValues adds incoming items to existing ones, preserving
+// order and skipping exact duplicates. Appending rather than replacing is what
+// makes concurrent writers safe: two callers each recording a different device
+// both end up in the set instead of overwriting each other.
+func unionCustomPropertyValues(existing string, incoming string) string {
+	seen := map[string]bool{}
+	merged := []string{}
+	for _, item := range append(splitCustomPropertyValues(existing), splitCustomPropertyValues(incoming)...) {
+		if seen[item] {
+			continue
+		}
+		seen[item] = true
+		merged = append(merged, item)
+	}
+	return strings.Join(merged, ",")
+}
+
+// findCustomPropertyItem returns the declaration for key, or nil.
+func findCustomPropertyItem(items []*CustomPropertyItem, key string) *CustomPropertyItem {
+	for _, item := range items {
+		if item != nil && item.Name == key {
+			return item
+		}
+	}
+	return nil
 }
 
 const (
@@ -116,7 +161,7 @@ const maxCustomPropertyWriteAttempts = 8
 // for local testing, does not.
 //
 // Returns the resulting property map.
-func SetUserCustomProperties(user *User, updates map[string]*string, lang string) (map[string]*CustomProperty, error) {
+func SetUserCustomProperties(user *User, updates map[string]*string, replace bool, lang string) (map[string]*CustomProperty, error) {
 	if user == nil {
 		return nil, fmt.Errorf("the user is nil")
 	}
@@ -171,7 +216,25 @@ func SetUserCustomProperties(user *User, updates map[string]*string, lang string
 				delete(merged, key)
 				continue
 			}
-			merged[key] = &CustomProperty{Value: *value, UpdatedTime: now}
+
+			stored := *value
+			// A multi-value attribute accumulates by default: the caller records
+			// one device without needing to know, or resend, the others. Two
+			// callers adding different devices then both land, instead of the
+			// second erasing the first. `replace` is the escape hatch for when
+			// the caller really does own the whole list.
+			if item := findCustomPropertyItem(items, key); item != nil && item.IsMultiValue && !replace {
+				existingValue := ""
+				if previous, ok := merged[key]; ok && previous != nil {
+					existingValue = previous.Value
+				}
+				stored = unionCustomPropertyValues(existingValue, stored)
+				if len(stored) > MaxCustomPropertyValueLength {
+					return nil, fmt.Errorf(i18n.Translate(lang, "user:The value of the custom property: %s is too long (maximum is %d characters)"), key, MaxCustomPropertyValueLength)
+				}
+			}
+
+			merged[key] = &CustomProperty{Value: stored, UpdatedTime: now}
 		}
 
 		if len(merged) > MaxCustomPropertyCount {
@@ -281,12 +344,26 @@ func checkCustomPropertyValue(items []*CustomPropertyItem, key string, value str
 	if allowedValues == "" {
 		return nil
 	}
-	for _, allowed := range strings.Split(allowedValues, ",") {
-		if strings.TrimSpace(allowed) == value {
-			return nil
+
+	// A multi-value write carries several items at once; each has to be a member.
+	candidates := []string{value}
+	if declared.IsMultiValue {
+		candidates = splitCustomPropertyValues(value)
+	}
+
+	for _, candidate := range candidates {
+		matched := false
+		for _, allowed := range strings.Split(allowedValues, ",") {
+			if strings.TrimSpace(allowed) == candidate {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return fmt.Errorf(i18n.Translate(lang, "user:The value of the custom property: %s must be one of: %s"), key, allowedValues)
 		}
 	}
-	return fmt.Errorf(i18n.Translate(lang, "user:The value of the custom property: %s must be one of: %s"), key, allowedValues)
+	return nil
 }
 
 func isCallerWhitelisted(whitelist string, callerId string) bool {
@@ -421,10 +498,39 @@ func GetUsersByCustomProperty(owners []string, key string, value string) ([]*Use
 		return nil, err
 	}
 
+	// A multi-value attribute matches when any one of its items equals the
+	// searched value: one MAC of an account that has several must still resolve
+	// to that account. Matching stays exact per item, never a substring.
+	multiValue := false
+	for _, organization := range owners {
+		items, err := GetCustomPropertyItems(organization)
+		if err != nil {
+			return nil, err
+		}
+		if item := findCustomPropertyItem(items, key); item != nil && item.IsMultiValue {
+			multiValue = true
+			break
+		}
+	}
+
 	matched := []*User{}
 	for _, user := range users {
-		if property, ok := user.CustomProperties[key]; ok && property != nil && property.Value == value {
+		property, ok := user.CustomProperties[key]
+		if !ok || property == nil {
+			continue
+		}
+		if property.Value == value {
 			matched = append(matched, user)
+			continue
+		}
+		if !multiValue {
+			continue
+		}
+		for _, item := range splitCustomPropertyValues(property.Value) {
+			if item == value {
+				matched = append(matched, user)
+				break
+			}
 		}
 	}
 

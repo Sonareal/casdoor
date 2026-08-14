@@ -14,7 +14,7 @@
 
 import React from "react";
 import {DeleteOutlined, DownOutlined, UpOutlined} from "@ant-design/icons";
-import {Button, Col, Input, Radio, Row, Table, Tooltip} from "antd";
+import {Button, Col, Input, Radio, Row, Switch, Table, Tooltip} from "antd";
 import * as Setting from "../Setting";
 import i18next from "i18next";
 
@@ -46,7 +46,7 @@ class CustomPropertyTable extends React.Component {
   }
 
   addRow(table) {
-    const row = {name: "", displayName: "", description: "", allowedValues: "", isPrimary: false};
+    const row = {name: "", displayName: "", description: "", allowedValues: "", isMultiValue: false, isPrimary: false};
     if (table === undefined) {
       table = [];
     }
@@ -118,6 +118,22 @@ class CustomPropertyTable extends React.Component {
             value={text}
             placeholder="zh,en"
             onChange={e => {this.updateField(table, index, "allowedValues", e.target.value);}}
+          />
+        ),
+      },
+      {
+        title: (
+          <Tooltip placement="top" title={i18next.t("organization:Store a comma-separated set; writes append and the lookup matches any single item")}>
+            {i18next.t("organization:Multi-value")}
+          </Tooltip>
+        ),
+        dataIndex: "isMultiValue",
+        key: "isMultiValue",
+        width: "100px",
+        render: (text, record, index) => (
+          <Switch
+            checked={!!text}
+            onChange={checked => {this.updateField(table, index, "isMultiValue", checked);}}
           />
         ),
       },

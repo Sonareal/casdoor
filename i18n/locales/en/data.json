@@ -148,8 +148,10 @@
     "Lookup caller whitelist": "Lookup caller whitelist",
     "Lookup caller whitelist - Tooltip": "Lookup caller whitelist - Tooltip",
     "Lookup key": "Lookup key",
+    "Multi-value": "Multi-value",
     "Only admin can modify the %s.": "Only admin can modify the %s.",
     "Only the primary property can be searched by the back office lookup API": "Only the primary property can be searched by the back office lookup API",
+    "Store a comma-separated set; writes append and the lookup matches any single item": "Store a comma-separated set; writes append and the lookup matches any single item",
     "The %s is immutable.": "The %s is immutable.",
     "Unknown modify rule %s.": "Unknown modify rule %s.",
     "adding a new user to the 'built-in' organization is currently disabled. Please note: all users in the 'built-in' organization are global administrators in Casdoor. Refer to the docs: https://casdoor.org/docs/basic/core-concepts#how-does-casdoor-manage-itself. If you still wish to create a user for the 'built-in' organization, go to the organization's settings page and enable the 'Has privilege consent' option.": "adding a new user to the 'built-in' organization is currently disabled. Please note: all users in the 'built-in' organization are global administrators in Casdoor. Refer to the docs: https://casdoor.org/docs/basic/core-concepts#how-does-casdoor-manage-itself. If you still wish to create a user for the 'built-in' organization, go to the organization's settings page and enable the 'Has privilege consent' option."

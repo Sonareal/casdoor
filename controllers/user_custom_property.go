@@ -181,7 +181,10 @@ func (c *ApiController) SetCustomProperties() {
 		return
 	}
 
-	properties, err := object.SetUserCustomProperties(user, updates, c.GetAcceptLanguage())
+	// Multi-value attributes append by default; replace=true hands the whole
+	// list over to the caller instead.
+	replace := c.Ctx.Input.Query("replace") == "true"
+	properties, err := object.SetUserCustomProperties(user, updates, replace, c.GetAcceptLanguage())
 	if err != nil {
 		c.ResponseError(err.Error())
 		return

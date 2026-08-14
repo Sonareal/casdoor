@@ -252,3 +252,67 @@ func TestUserTableNameUsesConfiguredPrefix(t *testing.T) {
 		t.Errorf("userTableName() = %q, want %q", got, "user")
 	}
 }
+
+func TestSplitCustomPropertyValues(t *testing.T) {
+	cases := map[string][]string{
+		"AA,BB":     {"AA", "BB"},
+		" AA , BB ": {"AA", "BB"},
+		"AA":        {"AA"},
+		"":          {},
+		",,":        {},
+		"AA,,BB,":   {"AA", "BB"},
+	}
+	for in, want := range cases {
+		got := splitCustomPropertyValues(in)
+		if len(got) != len(want) {
+			t.Errorf("splitCustomPropertyValues(%q) = %v, want %v", in, got, want)
+			continue
+		}
+		for i := range got {
+			if got[i] != want[i] {
+				t.Errorf("splitCustomPropertyValues(%q) = %v, want %v", in, got, want)
+				break
+			}
+		}
+	}
+}
+
+// Appending is what keeps two writers from erasing each other: each records its
+// own device and both survive.
+func TestUnionCustomPropertyValues(t *testing.T) {
+	cases := []struct{ existing, incoming, want string }{
+		{"", "AA", "AA"},
+		{"AA", "BB", "AA,BB"},
+		{"AA,BB", "CC", "AA,BB,CC"},
+		{"AA,BB", "AA", "AA,BB"},       // exact duplicate is not appended twice
+		{"AA,BB", "BB,CC", "AA,BB,CC"}, // partial overlap
+		{"AA", " AA ", "AA"},           // spacing does not create a duplicate
+		{"AA", "", "AA"},               // nothing to add
+		{"AA,BB", "AA,BB", "AA,BB"},    // idempotent
+	}
+	for _, c := range cases {
+		if got := unionCustomPropertyValues(c.existing, c.incoming); got != c.want {
+			t.Errorf("union(%q, %q) = %q, want %q", c.existing, c.incoming, got, c.want)
+		}
+	}
+}
+
+// Each item of a multi-value write has to be a member of the allowed set.
+func TestCheckCustomPropertyValueMultiValueEnum(t *testing.T) {
+	items := []*CustomPropertyItem{
+		{Name: "tags", AllowedValues: "a,b,c", IsMultiValue: true},
+		{Name: "single", AllowedValues: "a,b"},
+	}
+
+	if err := checkCustomPropertyValue(items, "tags", "a,c", "en"); err != nil {
+		t.Errorf("every item is allowed, so the write should pass: %v", err)
+	}
+	if err := checkCustomPropertyValue(items, "tags", "a,z", "en"); err == nil {
+		t.Error("one disallowed item must reject the whole write")
+	}
+	// A single-value attribute must not start accepting a comma-joined string
+	// just because the parts are individually allowed.
+	if err := checkCustomPropertyValue(items, "single", "a,b", "en"); err == nil {
+		t.Error("a single-value attribute must compare the value whole")
+	}
+}
