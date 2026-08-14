@@ -162,10 +162,15 @@ func checkCustomPropertyValue(items []*CustomPropertyItem, key string, value str
 	return fmt.Errorf(i18n.Translate(lang, "user:The value of the custom property: %s must be one of: %s"), key, allowedValues)
 }
 
-// userTableName is the user table with the configured prefix applied, for the
-// one place that needs raw SQL.
+// userTableName is the user table for the one place that needs raw SQL: the
+// configured prefix applied, and quoted for the dialect.
+//
+// The quoting is not cosmetic. "user" is a reserved word in PostgreSQL, where an
+// unquoted FROM user parses as the current_user function and the query fails
+// with "column custom_properties does not exist". SQLite accepts it bare, so
+// leaving it unquoted passes every local test and breaks only in production.
 func userTableName() string {
-	return conf.GetConfigString("tableNamePrefix") + "user"
+	return ormer.Engine.Quote(conf.GetConfigString("tableNamePrefix") + "user")
 }
 
 // maxCustomPropertyWriteAttempts bounds the compare-and-swap retry. Contention

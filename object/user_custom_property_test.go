@@ -179,16 +179,16 @@ func TestIsIpAllowed(t *testing.T) {
 	}
 }
 
-func TestUserTableNameUsesConfiguredPrefix(t *testing.T) {
-	// The compare-and-swap is the one place using raw SQL, so it has to respect
-	// tableNamePrefix rather than hardcoding "user".
-	t.Setenv("tableNamePrefix", "casdoor_")
-	if got := userTableName(); got != "casdoor_user" {
-		t.Errorf("userTableName() = %q, want %q", got, "casdoor_user")
+// userTableName needs a live engine for dialect-aware quoting, so the prefix and
+// the quoting are asserted against the raw SQL in the integration run rather
+// than here. What matters is that the name is never emitted bare: "user" is a
+// reserved word in PostgreSQL and an unquoted FROM user parses as current_user.
+func TestUserTableNameIsQuoted(t *testing.T) {
+	if ormer == nil || ormer.Engine == nil {
+		t.Skip("no database configured")
 	}
-
-	t.Setenv("tableNamePrefix", "")
-	if got := userTableName(); got != "user" {
-		t.Errorf("userTableName() = %q, want %q", got, "user")
+	got := userTableName()
+	if !strings.ContainsAny(got, `"`+"`") {
+		t.Errorf("userTableName() = %q, expected the identifier to be quoted for the dialect", got)
 	}
 }
