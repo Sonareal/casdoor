@@ -19,10 +19,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
 	"net"
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/casdoor/casdoor/conf"
 	"github.com/casdoor/casdoor/i18n"
@@ -173,11 +175,21 @@ func userTableName() string {
 	return ormer.Engine.Quote(conf.GetConfigString("tableNamePrefix") + "user")
 }
 
-// maxCustomPropertyWriteAttempts bounds the compare-and-swap retry. Contention
-// on one account is between that user's app and a back-office call, so a
-// handful of attempts is far more than enough; the bound exists so a
-// pathological case fails loudly instead of spinning.
-const maxCustomPropertyWriteAttempts = 8
+// maxCustomPropertyWriteAttempts bounds the compare-and-swap retry; the bound
+// exists so a pathological case fails loudly instead of spinning forever.
+const maxCustomPropertyWriteAttempts = 12
+
+// backoffBeforeRetry spaces out contending writers.
+//
+// Retrying immediately makes every loser of a swap collide again on the next
+// attempt, so a burst against one account exhausted the retries and rejected a
+// third of its writes even though nothing was lost. Growing, jittered waits
+// break that up: the jitter matters more than the growth, since without it the
+// same set of writers would simply collide again in lockstep.
+func backoffBeforeRetry(attempt int) {
+	base := time.Duration(attempt+1) * 4 * time.Millisecond
+	time.Sleep(base + time.Duration(rand.Int63n(int64(base))))
+}
 
 // SetUserDeviceProperties merges updates into one device's attributes on one
 // account. A nil value deletes the key; deleting the last key drops the device.
@@ -293,8 +305,10 @@ func SetUserDeviceProperties(user *User, device string, updates map[string]*stri
 			user.CustomProperties = merged
 			return merged, nil
 		}
-		// Someone else committed between the read and the swap; retry against
-		// their result rather than overwriting it.
+		// Someone else committed between the read and the swap; wait a moment so
+		// the contenders spread out, then retry against their result rather than
+		// overwriting it.
+		backoffBeforeRetry(attempt)
 	}
 
 	return nil, errors.New(i18n.Translate(lang, "user:The custom properties are being updated too frequently, please retry"))
