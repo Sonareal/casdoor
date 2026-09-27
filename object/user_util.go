@@ -534,11 +534,21 @@ func CheckPermissionForUpdateUser(oldUser, newUser *User, isAdmin bool, allowDis
 
 	var itemsChanged []*AccountItem
 
-	// A moderation flag, not a user preference: never settable by the user
-	// themselves, whatever the organization's account items say. UpdateUser
-	// clears it server-side once a clean display name is saved.
+	// Moderation and privilege flags, not user preferences: never settable by
+	// the user themselves, whatever the organization's account items say.
+	// UpdateUser clears NeedUpdateDisplayName server-side once a clean display
+	// name is saved.
+	//
+	// The per-item checks further down do cover "Is admin", "Is forbidden" and
+	// "Is deleted", but they fail open: userVisible treats a missing account
+	// item as visible, so in an organization whose account items omit them (or
+	// loosen their view rule) nothing would stop a user promoting themselves.
+	// These flags must not depend on that configuration being right.
 	if !isAdmin {
 		newUser.NeedUpdateDisplayName = oldUser.NeedUpdateDisplayName
+		newUser.IsAdmin = oldUser.IsAdmin
+		newUser.IsForbidden = oldUser.IsForbidden
+		newUser.IsDeleted = oldUser.IsDeleted
 	}
 
 	if oldUser.Owner != newUser.Owner {
