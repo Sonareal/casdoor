@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 
+	aliyunerrors "github.com/aliyun/alibaba-cloud-sdk-go/sdk/errors"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/dypnsapi"
 )
 
@@ -65,6 +66,14 @@ func (c *PnvsSmsClient) GetMobile(accessToken string) (mobile string, requestId 
 
 	response, err := c.core.GetMobile(request)
 	if err != nil {
+		// On an API-level rejection the SDK returns the detail in the error, not
+		// in a response object. Pull out Aliyun's RequestId and code so the
+		// caller gets a single-line, greppable error instead of the SDK's
+		// multi-line dump.
+		if se, ok := err.(*aliyunerrors.ServerError); ok {
+			requestId = se.RequestId()
+			return "", requestId, fmt.Errorf("PNVS GetMobile failed: code=%s, message=%s, aliyunRequestId=%s", se.ErrorCode(), se.Message(), requestId)
+		}
 		return "", "", err
 	}
 	requestId = response.RequestId
