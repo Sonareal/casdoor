@@ -51,9 +51,12 @@ func newPnvsSmsClient(accessId string, accessKey string, sign string, template s
 // by the app's SDK on the device) for the verified phone number. The AccessKey
 // pair is what authorises the exchange, which is exactly why it must happen
 // here on the server and never in the app.
-func (c *PnvsSmsClient) GetMobile(accessToken string) (string, error) {
+//
+// requestId is Aliyun's request id; it is returned on both success and failure
+// so the caller can log it — it is what Aliyun support needs to trace a call.
+func (c *PnvsSmsClient) GetMobile(accessToken string) (mobile string, requestId string, err error) {
 	if accessToken == "" {
-		return "", fmt.Errorf("missing parameter: accessToken")
+		return "", "", fmt.Errorf("missing parameter: accessToken")
 	}
 
 	request := dypnsapi.CreateGetMobileRequest()
@@ -62,22 +65,26 @@ func (c *PnvsSmsClient) GetMobile(accessToken string) (string, error) {
 
 	response, err := c.core.GetMobile(request)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
+	requestId = response.RequestId
 
 	if response.Code != "OK" {
-		if response.Message != "" {
-			return "", errors.New(response.Message)
+		msg := response.Message
+		if msg == "" {
+			msg = "(no message)"
 		}
-		return "", fmt.Errorf("PNVS GetMobile failed with code: %s", response.Code)
+		// Carry Aliyun's Code and RequestId in the error so they reach both the
+		// server log and the audit record.
+		return "", requestId, fmt.Errorf("PNVS GetMobile failed: code=%s, message=%s, aliyunRequestId=%s", response.Code, msg, requestId)
 	}
 
-	mobile := response.GetMobileResultDTO.Mobile
+	mobile = response.GetMobileResultDTO.Mobile
 	if mobile == "" {
-		return "", fmt.Errorf("PNVS GetMobile returned an empty mobile")
+		return "", requestId, fmt.Errorf("PNVS GetMobile returned an empty mobile (aliyunRequestId=%s)", requestId)
 	}
 
-	return mobile, nil
+	return mobile, requestId, nil
 }
 
 func (c *PnvsSmsClient) SendMessage(param map[string]string, targetPhoneNumber ...string) error {

@@ -42,9 +42,12 @@ func TestResolveOrCreateOneTapUser(t *testing.T) {
 	app := setupOneTapOrg(t)
 	mobile := "13800138000"
 
-	u1, err := ResolveOrCreateOneTapUser(app, mobile, "CN", "")
+	u1, created1, err := ResolveOrCreateOneTapUser(app, mobile, "CN", "")
 	if err != nil {
 		t.Fatalf("first resolve: %v", err)
+	}
+	if !created1 {
+		t.Errorf("first call should report created=true")
 	}
 	if u1.Phone != mobile || u1.CountryCode != "CN" {
 		t.Errorf("phone/country not set: %q / %q", u1.Phone, u1.CountryCode)
@@ -59,9 +62,12 @@ func TestResolveOrCreateOneTapUser(t *testing.T) {
 		t.Errorf("username %q does not follow u<phone>_<id> convention", u1.Name)
 	}
 
-	u2, err := ResolveOrCreateOneTapUser(app, mobile, "CN", "")
+	u2, created2, err := ResolveOrCreateOneTapUser(app, mobile, "CN", "")
 	if err != nil {
 		t.Fatalf("second resolve: %v", err)
+	}
+	if created2 {
+		t.Errorf("second call should report created=false")
 	}
 	if u2.Id != u1.Id || u2.Name != u1.Name {
 		t.Errorf("second call created a different user: %q vs %q", u2.Name, u1.Name)
@@ -84,9 +90,12 @@ func TestResolveOneTapUserMatchesExisting(t *testing.T) {
 		t.Fatalf("insert existing: %v", err)
 	}
 
-	got, err := ResolveOrCreateOneTapUser(app, mobile, "CN", "")
+	got, created, err := ResolveOrCreateOneTapUser(app, mobile, "CN", "")
 	if err != nil {
 		t.Fatalf("resolve: %v", err)
+	}
+	if created {
+		t.Errorf("matching an existing user should report created=false")
 	}
 	if got.Name != "u13912345678_pre" {
 		t.Errorf("did not match existing user, got %q", got.Name)

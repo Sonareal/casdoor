@@ -27,13 +27,17 @@ import (
 )
 
 var (
-	logPostOnly   bool
-	passwordRegex *regexp.Regexp
+	logPostOnly      bool
+	passwordRegex    *regexp.Regexp
+	accessTokenRegex *regexp.Regexp
 )
 
 func init() {
 	logPostOnly = conf.GetConfigBool("logPostOnly")
 	passwordRegex = regexp.MustCompile("\"password\":\"([^\"]*?)\"")
+	// The carrier one-tap token (spToken) arrives in the request body and is a
+	// short-lived bearer of a phone number; keep it out of the audit record.
+	accessTokenRegex = regexp.MustCompile("\"accessToken\":\"([^\"]*?)\"")
 }
 
 type Record struct {
@@ -66,7 +70,9 @@ type Response struct {
 }
 
 func maskPassword(recordString string) string {
-	return passwordRegex.ReplaceAllString(recordString, "\"password\":\"***\"")
+	recordString = passwordRegex.ReplaceAllString(recordString, "\"password\":\"***\"")
+	recordString = accessTokenRegex.ReplaceAllString(recordString, "\"accessToken\":\"***\"")
+	return recordString
 }
 
 func NewRecord(ctx *context.Context) (*Record, error) {

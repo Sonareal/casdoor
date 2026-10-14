@@ -58,30 +58,31 @@ func GetOneTapProvider(application *Application, lang string) (*Provider, error)
 
 // GetPhoneByOneTapToken exchanges the carrier access token for the verified
 // phone number by calling Aliyun GetMobile with the provider's AccessKey pair.
-// This is the one step that cannot move to the client.
-func GetPhoneByOneTapToken(provider *Provider, accessToken string, lang string) (string, error) {
+// This is the one step that cannot move to the client. requestId is Aliyun's
+// request id, returned for logging on both success and failure.
+func GetPhoneByOneTapToken(provider *Provider, accessToken string, lang string) (mobile string, requestId string, err error) {
 	if provider == nil || provider.Type != OneTapProviderType {
-		return "", errors.New(i18n.Translate(lang, "provider:The one-tap (number authentication) provider is not configured for this application"))
+		return "", "", errors.New(i18n.Translate(lang, "provider:The one-tap (number authentication) provider is not configured for this application"))
 	}
 	if accessToken == "" {
-		return "", errors.New(i18n.Translate(lang, "general:Missing parameter") + ": accessToken")
+		return "", "", errors.New(i18n.Translate(lang, "general:Missing parameter") + ": accessToken")
 	}
 
 	client, err := newPnvsSmsClient(provider.ClientId, provider.ClientSecret, provider.SignName, provider.TemplateCode, provider.RegionId)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	mobile, err := client.GetMobile(accessToken)
+	mobile, requestId, err = client.GetMobile(accessToken)
 	if err != nil {
-		return "", err
+		return "", requestId, err
 	}
 
 	// Aliyun returns a bare national number; keep only the national part so it
 	// matches how phone numbers are stored (national number + country code).
 	mobile = strings.TrimSpace(mobile)
 	mobile = strings.TrimPrefix(mobile, "+86")
-	return mobile, nil
+	return mobile, requestId, nil
 }
 
 // ResolveOrCreateOneTapUser finds the user that owns the verified phone in the
@@ -90,7 +91,7 @@ func GetPhoneByOneTapToken(provider *Provider, accessToken string, lang string) 
 // follows the existing u<phone>_<idPrefix> naming so one-tap and app-side
 // signups stay uniform. The phone is already carrier-verified here, so no
 // SMS code is involved.
-func ResolveOrCreateOneTapUser(application *Application, mobile string, countryCode string, lang string) (*User, error) {
+func ResolveOrCreateOneTapUser(application *Application, mobile string, countryCode string, lang string) (user *User, created bool, err error) {
 	if countryCode == "" {
 		countryCode = "CN"
 	}
@@ -99,33 +100,33 @@ func ResolveOrCreateOneTapUser(application *Application, mobile string, countryC
 
 	e164, ok := util.GetE164Number(mobile, countryCode)
 	if !ok {
-		return nil, fmt.Errorf(i18n.Translate(lang, "verification:Phone number is invalid in your region %s"), countryCode)
+		return nil, false, fmt.Errorf(i18n.Translate(lang, "verification:Phone number is invalid in your region %s"), countryCode)
 	}
 
-	user, err := GetUserByPhone(organizationName, e164)
+	user, err = GetUserByPhone(organizationName, e164)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if user != nil {
-		return user, nil
+		return user, false, nil
 	}
 
 	organization, err := GetOrganization(util.GetId("admin", organizationName))
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if organization == nil {
-		return nil, fmt.Errorf(i18n.Translate(lang, "auth:The organization: %s does not exist"), organizationName)
+		return nil, false, fmt.Errorf(i18n.Translate(lang, "auth:The organization: %s does not exist"), organizationName)
 	}
 
 	initScore, err := organization.GetInitScore()
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	id, err := GenerateIdForNewUser(application)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	idPrefix := strings.ReplaceAll(id, "-", "")
@@ -152,11 +153,11 @@ func ResolveOrCreateOneTapUser(application *Application, mobile string, countryC
 
 	affected, err := AddUser(user, lang)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if !affected {
-		return nil, errors.New(i18n.Translate(lang, "general:Failed to add user"))
+		return nil, false, errors.New(i18n.Translate(lang, "general:Failed to add user"))
 	}
 
-	return user, nil
+	return user, true, nil
 }

@@ -1323,21 +1323,28 @@ func (c *ApiController) LoginByOneTap() {
 	// caller can never point it at another organization's credentials.
 	provider, err := object.GetOneTapProvider(application, c.GetAcceptLanguage())
 	if err != nil {
+		util.LogWarning(c.Ctx, "LoginByOneTap: provider lookup failed for application=%s: %s", authForm.Application, err.Error())
 		c.ResponseError(err.Error())
 		return
 	}
 
-	mobile, err := object.GetPhoneByOneTapToken(provider, authForm.AccessToken, c.GetAcceptLanguage())
+	mobile, aliyunRequestId, err := object.GetPhoneByOneTapToken(provider, authForm.AccessToken, c.GetAcceptLanguage())
 	if err != nil {
+		// Aliyun's request id is carried in err too; log it on its own so it is
+		// easy to grep and hand to Aliyun support.
+		util.LogWarning(c.Ctx, "LoginByOneTap: GetMobile failed, application=%s, provider=%s, aliyunRequestId=%s, err=%s", authForm.Application, provider.Name, aliyunRequestId, err.Error())
 		c.ResponseError(err.Error())
 		return
 	}
 
-	user, err := object.ResolveOrCreateOneTapUser(application, mobile, authForm.CountryCode, c.GetAcceptLanguage())
+	user, created, err := object.ResolveOrCreateOneTapUser(application, mobile, authForm.CountryCode, c.GetAcceptLanguage())
 	if err != nil {
+		util.LogWarning(c.Ctx, "LoginByOneTap: resolve/create user failed, application=%s, phone=%s, aliyunRequestId=%s, err=%s", authForm.Application, util.GetMaskedPhone(mobile), aliyunRequestId, err.Error())
 		c.ResponseError(err.Error())
 		return
 	}
+
+	util.LogInfo(c.Ctx, "LoginByOneTap: ok, application=%s, user=%s, phone=%s, newUser=%t, aliyunRequestId=%s", authForm.Application, user.GetId(), util.GetMaskedPhone(mobile), created, aliyunRequestId)
 
 	resp := c.HandleLoggedIn(application, user, &authForm)
 
