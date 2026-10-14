@@ -220,6 +220,14 @@ func GetJsonWebKeySet(applicationName string) (jose.JSONWebKeySet, error) {
 
 		certPemBlock := []byte(cert.Certificate)
 		certDerBlock, _ := pem.Decode(certPemBlock)
+		if certDerBlock == nil {
+			// The certificate field is not PEM-encoded. Some certs of type
+			// "x509" hold a payment client key or a bare serial rather than an
+			// OIDC signing certificate; they are not JWKS signing keys. Skip
+			// such a cert instead of dereferencing a nil block and crashing the
+			// whole JWKS endpoint (which the apps need to verify JWTs).
+			continue
+		}
 		x509Cert, err := x509.ParseCertificate(certDerBlock.Bytes)
 		if err != nil {
 			return jwks, err
