@@ -96,6 +96,10 @@ export const OtherProviderInfo = {
       logo: `${StaticBaseUrl}/img/social_aliyun.png`,
       url: "https://aliyun.com/product/sms",
     },
+    "Alibaba Cloud PNVS SMS": {
+      logo: `${StaticBaseUrl}/img/social_aliyun.png`,
+      url: "https://www.aliyun.com/product/dypns",
+    },
     "Amazon SNS": {
       logo: `${StaticBaseUrl}/img/social_aws.png`,
       url: "https://aws.amazon.com/cn/sns/",
