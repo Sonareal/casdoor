@@ -52,6 +52,10 @@ type AuthForm struct {
 	PhoneCode   string `json:"phoneCode"`
 	CountryCode string `json:"countryCode"`
 
+	// AccessToken carries the carrier one-tap token (Aliyun spToken) the app's
+	// SDK obtains on the device; the server exchanges it for the phone number.
+	AccessToken string `json:"accessToken"`
+
 	AutoSignin bool `json:"autoSignin"`
 
 	RelayState   string `json:"relayState"`

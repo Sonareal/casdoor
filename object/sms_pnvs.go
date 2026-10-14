@@ -47,6 +47,39 @@ func newPnvsSmsClient(accessId string, accessKey string, sign string, template s
 	return pnvsClient, nil
 }
 
+// GetMobile exchanges a carrier one-tap access token (Aliyun spToken, obtained
+// by the app's SDK on the device) for the verified phone number. The AccessKey
+// pair is what authorises the exchange, which is exactly why it must happen
+// here on the server and never in the app.
+func (c *PnvsSmsClient) GetMobile(accessToken string) (string, error) {
+	if accessToken == "" {
+		return "", fmt.Errorf("missing parameter: accessToken")
+	}
+
+	request := dypnsapi.CreateGetMobileRequest()
+	request.Scheme = "https"
+	request.AccessToken = accessToken
+
+	response, err := c.core.GetMobile(request)
+	if err != nil {
+		return "", err
+	}
+
+	if response.Code != "OK" {
+		if response.Message != "" {
+			return "", errors.New(response.Message)
+		}
+		return "", fmt.Errorf("PNVS GetMobile failed with code: %s", response.Code)
+	}
+
+	mobile := response.GetMobileResultDTO.Mobile
+	if mobile == "" {
+		return "", fmt.Errorf("PNVS GetMobile returned an empty mobile")
+	}
+
+	return mobile, nil
+}
+
 func (c *PnvsSmsClient) SendMessage(param map[string]string, targetPhoneNumber ...string) error {
 	if len(targetPhoneNumber) == 0 {
 		return fmt.Errorf("missing parameter: targetPhoneNumber")

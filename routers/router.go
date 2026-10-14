@@ -46,6 +46,7 @@ func InitAPI() {
 
 	web.Router("/api/signup", &controllers.ApiController{}, "POST:Signup")
 	web.Router("/api/login", &controllers.ApiController{}, "POST:Login")
+	web.Router("/api/login-by-onetap", &controllers.ApiController{}, "POST:LoginByOneTap")
 	web.Router("/api/get-app-login", &controllers.ApiController{}, "GET:GetApplicationLogin")
 	web.Router("/api/get-dashboard", &controllers.ApiController{}, "GET:GetDashboard")
 	web.Router("/api/get-dashboard-providers", &controllers.ApiController{}, "GET:GetDashboardProviderDistribution")

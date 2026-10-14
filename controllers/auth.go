@@ -1280,6 +1280,73 @@ func (c *ApiController) Login() {
 	c.ServeJSON()
 }
 
+// LoginByOneTap
+// @Title LoginByOneTap
+// @Tag Login API
+// @Description carrier one-tap (number authentication) login. The app's SDK
+// @Description obtains an access token on the device; the server exchanges it
+// @Description for the verified phone number and logs the user in, creating the
+// @Description account on first sight. Both steps are server-side by necessity:
+// @Description the exchange needs the provider's AccessKey secret, and only
+// @Description Casdoor can issue its own login credential.
+// @Param   body    body   form.AuthForm  true  "accessToken + application + type (same type as the app's SMS login)"
+// @Success 200 {object} controllers.Response The Response object
+// @router /login-by-onetap [post]
+func (c *ApiController) LoginByOneTap() {
+	var authForm form.AuthForm
+	if err := json.Unmarshal(c.Ctx.Input.RequestBody, &authForm); err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+
+	if authForm.AccessToken == "" {
+		c.ResponseError(c.T("general:Missing parameter") + ": accessToken")
+		return
+	}
+
+	application, err := object.GetApplication(fmt.Sprintf("admin/%s", authForm.Application))
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+	if application == nil {
+		c.ResponseError(fmt.Sprintf(c.T("auth:The application: %s does not exist"), authForm.Application))
+		return
+	}
+
+	if authForm.Organization == "" {
+		authForm.Organization = application.Organization
+	}
+
+	// The configured number-authentication provider is the enable switch: an
+	// app without one cannot do one-tap, and the lookup is by application so a
+	// caller can never point it at another organization's credentials.
+	provider, err := object.GetOneTapProvider(application, c.GetAcceptLanguage())
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+
+	mobile, err := object.GetPhoneByOneTapToken(provider, authForm.AccessToken, c.GetAcceptLanguage())
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+
+	user, err := object.ResolveOrCreateOneTapUser(application, mobile, authForm.CountryCode, c.GetAcceptLanguage())
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+
+	resp := c.HandleLoggedIn(application, user, &authForm)
+
+	c.Ctx.Input.SetParam("recordUserId", user.GetId())
+
+	c.Data["json"] = resp
+	c.ServeJSON()
+}
+
 func (c *ApiController) GetSamlLogin() {
 	providerId := c.Ctx.Input.Query("id")
 	relayState := c.Ctx.Input.Query("relayState")
