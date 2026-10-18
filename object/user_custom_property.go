@@ -419,6 +419,22 @@ func isIpAllowed(ipWhitelist string, clientIp string) bool {
 //
 // An empty result is always an error: with nothing configured the endpoint
 // stays closed rather than open.
+// IsCustomPropertyCallerAllowed reports whether an app caller is on the
+// custom-property whitelist of the organization that owns the target user. It
+// scopes back-office reads/writes to the same organizations that authorize the
+// reverse lookup, so a provisioned app cannot touch arbitrary users in
+// organizations that never granted it access.
+func IsCustomPropertyCallerAllowed(targetOwner string, callerId string) (bool, error) {
+	org, err := getOrganization("admin", targetOwner)
+	if err != nil {
+		return false, err
+	}
+	if org == nil {
+		return false, nil
+	}
+	return isCallerWhitelisted(org.CustomPropertyLookupWhitelist, callerId), nil
+}
+
 func ResolveCustomPropertyLookupScope(callerId string, clientIp string, owner string, lang string) ([]string, error) {
 	organizations := []*Organization{}
 	if err := ormer.Engine.Find(&organizations); err != nil {

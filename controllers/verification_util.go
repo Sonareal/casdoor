@@ -29,8 +29,10 @@ func (c *ApiController) checkOrgMasterVerificationCode(user *object.User, code s
 		return false, fmt.Errorf("The organization: %s does not exist", user.Owner)
 	}
 
-	if organization.MasterVerificationCode != "" && organization.MasterVerificationCode == code {
-		return true, nil
-	}
+	// NOTE: the organization "master verification code" backdoor has been
+	// removed. A static org-wide code that satisfies email/phone verification
+	// AND MFA for any user is a zero-interaction account-takeover path, so it is
+	// never accepted. Verification is by the real per-destination code only.
+	_ = organization
 	return false, nil
 }

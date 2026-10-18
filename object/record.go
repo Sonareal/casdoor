@@ -30,6 +30,8 @@ var (
 	logPostOnly      bool
 	passwordRegex    *regexp.Regexp
 	accessTokenRegex *regexp.Regexp
+	sensitiveJsonRegex *regexp.Regexp
+	sensitiveFormRegex *regexp.Regexp
 )
 
 func init() {
@@ -38,6 +40,8 @@ func init() {
 	// The carrier one-tap token (spToken) arrives in the request body and is a
 	// short-lived bearer of a phone number; keep it out of the audit record.
 	accessTokenRegex = regexp.MustCompile("\"accessToken\":\"([^\"]*?)\"")
+	sensitiveJsonRegex = regexp.MustCompile("\"(clientSecret|newPassword|oldPassword|code|password)\":\"([^\"]*?)\"")
+	sensitiveFormRegex = regexp.MustCompile("(?i)(password|clientsecret|newpassword|oldpassword|code)=([^&\\s\"]*)")
 }
 
 type Record struct {
@@ -72,6 +76,8 @@ type Response struct {
 func maskPassword(recordString string) string {
 	recordString = passwordRegex.ReplaceAllString(recordString, "\"password\":\"***\"")
 	recordString = accessTokenRegex.ReplaceAllString(recordString, "\"accessToken\":\"***\"")
+	recordString = sensitiveJsonRegex.ReplaceAllString(recordString, "\"$1\":\"***\"")
+	recordString = sensitiveFormRegex.ReplaceAllString(recordString, "$1=***")
 	return recordString
 }
 

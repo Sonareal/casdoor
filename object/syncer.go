@@ -154,6 +154,9 @@ func GetMaskedSyncer(syncer *Syncer, errs ...error) (*Syncer, error) {
 	if syncer.Password != "" {
 		syncer.Password = "***"
 	}
+	if syncer.SshPassword != "" {
+		syncer.SshPassword = "***"
+	}
 	return syncer, nil
 }
 
@@ -193,6 +196,9 @@ func UpdateSyncer(id string, syncer *Syncer, isGlobalAdmin bool, lang string) (b
 	session := ormer.Engine.ID(core.PK{owner, name}).Where("organization = ?", s.Organization).AllCols()
 	if syncer.Password == "***" {
 		syncer.Password = s.Password
+	}
+	if syncer.SshPassword == "***" {
+		syncer.SshPassword = s.SshPassword
 	}
 	affected, err := session.Update(syncer)
 	if err != nil {
@@ -332,6 +338,9 @@ func TestSyncer(syncer Syncer) error {
 
 	if syncer.Password == "***" {
 		syncer.Password = oldSyncer.Password
+	}
+	if syncer.SshPassword == "***" {
+		syncer.SshPassword = oldSyncer.SshPassword
 	}
 
 	provider := GetSyncerProvider(&syncer)

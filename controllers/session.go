@@ -32,6 +32,9 @@ import (
 // @Success 200 {array} string The Response object
 // @router /get-sessions [get]
 func (c *ApiController) GetSessions() {
+	if _, ok := c.RequireAdmin(); !ok {
+		return
+	}
 	limit := c.Ctx.Input.Query("pageSize")
 	page := c.Ctx.Input.Query("p")
 	field := c.Ctx.Input.Query("field")

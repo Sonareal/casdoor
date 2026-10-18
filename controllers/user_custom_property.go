@@ -110,7 +110,23 @@ func (c *ApiController) resolveCustomPropertyTarget() (*object.User, bool) {
 			c.ResponseError(c.T("general:Missing parameter") + ": id")
 			return nil, false
 		}
-		return c.loadCustomPropertyUser(id)
+		target, ok := c.loadCustomPropertyUser(id)
+		if !ok {
+			return nil, false
+		}
+		// Scope the app to the organizations that whitelist it, exactly like the
+		// reverse lookup — otherwise one back-office app credential can read and
+		// write every user's device properties across all organizations.
+		allowed, err := object.IsCustomPropertyCallerAllowed(target.Owner, callerId)
+		if err != nil {
+			c.ResponseError(err.Error())
+			return nil, false
+		}
+		if !allowed {
+			c.ResponseError(c.T("auth:Unauthorized operation"))
+			return nil, false
+		}
+		return target, true
 	}
 
 	if id == "" || id == callerId {

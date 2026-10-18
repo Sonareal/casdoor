@@ -1722,12 +1722,25 @@ func UpdateUserBalance(owner string, name string, balance float64, currency stri
 		}
 	}
 
-	// Validate new balance against credit limit
+	// Fast-fail on the in-memory read for a clean error message, but the real
+	// guard is the atomic conditional UPDATE below.
 	if newBalance < balanceCredit {
 		return fmt.Errorf(i18n.Translate(lang, "general:Insufficient balance: new balance %v would be below credit limit %v"), newBalance, balanceCredit)
 	}
 
-	user.Balance = newBalance
-	_, err = UpdateUser(user.GetId(), user, []string{"balance"}, true)
-	return err
+	// Apply the delta atomically at the SQL level: a single
+	//   UPDATE user SET balance = balance + ? WHERE ... AND balance + ? >= credit
+	// serializes concurrent debits/credits in the database, so two simultaneous
+	// withdrawals can no longer each pass a stale check and over-draw (TOCTOU).
+	affected, err := ormer.Engine.
+		Where("owner = ? AND name = ? AND balance + ? >= ?", owner, name, convertedBalance, balanceCredit).
+		Incr("balance", convertedBalance).
+		Update(&User{})
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return fmt.Errorf(i18n.Translate(lang, "general:Insufficient balance: new balance %v would be below credit limit %v"), newBalance, balanceCredit)
+	}
+	return nil
 }

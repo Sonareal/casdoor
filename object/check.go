@@ -278,11 +278,11 @@ func CheckPassword(user *User, password string, lang string, options ...bool) er
 		return fmt.Errorf(i18n.Translate(lang, "check:unsupported password type: %s"), passwordType)
 	}
 
-	if organization.MasterPassword != "" {
-		if password == organization.MasterPassword || credManager.IsPasswordCorrect(password, organization.MasterPassword, organization.PasswordSalt) {
-			return resetUserSigninErrorTimes(user)
-		}
-	}
+	// NOTE: the organization "master password" universal-login backdoor has been
+	// removed. A single org-wide password that logs in as any user (including
+	// admins) is an unacceptable account-takeover risk and cannot be audited
+	// from the API (it is always masked). Authentication is by the user's own
+	// password only.
 
 	if !credManager.IsPasswordCorrect(password, user.Password, organization.PasswordSalt) && !credManager.IsPasswordCorrect(password, user.Password, user.PasswordSalt) {
 		return recordSigninErrorInfo(user, lang, enableCaptcha)
