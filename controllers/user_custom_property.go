@@ -98,6 +98,14 @@ func (c *ApiController) resolveCustomPropertyTarget() (*object.User, bool) {
 	// "self" to default to, so it has to name the target explicitly — this is
 	// the back office path.
 	if object.IsAppUser(callerId) {
+		// A dynamically self-registered OAuth client (app-dcr/*) is NOT a back
+		// office principal: anyone can obtain one through the public, unauthenticated
+		// /api/oauth/register, so it must never read or write arbitrary users'
+		// device properties. Only provisioned applications (app/*) may.
+		if strings.HasPrefix(callerId, "app-dcr/") {
+			c.ResponseError(c.T("auth:Unauthorized operation"))
+			return nil, false
+		}
 		if id == "" {
 			c.ResponseError(c.T("general:Missing parameter") + ": id")
 			return nil, false

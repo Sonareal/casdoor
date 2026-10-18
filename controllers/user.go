@@ -234,7 +234,13 @@ func (c *ApiController) GetUser() {
 	isApplicationRequest := object.IsAppUser(requestUserId)
 	isAdmin := c.IsAdmin() || isApplicationRequest
 	isAdminOrSelf := c.IsAdminOrSelf(user) || isApplicationRequest
-	user, err = object.GetMaskedUser(user, isAdminOrSelf)
+	// An application credential must never receive another user's secret tokens
+	// (OriginalToken / OriginalRefreshToken and the linked third-party OAuth
+	// access/refresh tokens). Treating the app as admin-or-self here disclosed
+	// every user's tokens cross-org to anyone holding any app clientSecret.
+	// Only a real human admin or the user themselves may see them.
+	revealSecrets := c.IsAdminOrSelf(user) && !isApplicationRequest
+	user, err = object.GetMaskedUser(user, revealSecrets)
 	if err != nil {
 		c.ResponseError(err.Error())
 		return
@@ -578,6 +584,14 @@ func (c *ApiController) SetPassword() {
 		c.ResponseError(c.T("general:Please login first"), "Please login first")
 		return
 	} else if code == "" {
+		// An application credential must not reset an arbitrary user's password
+		// (CheckUserPermission grants any app blanket permission, which was a
+		// full account-takeover path). Password changes require a real admin or
+		// the user themselves (below), or the verification-code flow.
+		if object.IsAppUser(requestUserId) {
+			c.ResponseError(c.T("auth:Unauthorized operation"))
+			return
+		}
 		hasPermission, err := object.CheckUserPermission(requestUserId, userId, true, c.GetAcceptLanguage())
 		if !hasPermission {
 			c.ResponseError(err.Error())
