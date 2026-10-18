@@ -34,6 +34,11 @@ import (
 // @Success 200 {array} object.Token The Response object
 // @router /get-tokens [get]
 func (c *ApiController) GetTokens() {
+	// Listing tokens exposes issued access/refresh tokens; admin-only.
+	if _, ok := c.RequireAdmin(); !ok {
+		return
+	}
+
 	owner := c.Ctx.Input.Query("owner")
 	limit := c.Ctx.Input.Query("pageSize")
 	page := c.Ctx.Input.Query("p")
@@ -108,6 +113,10 @@ func (c *ApiController) GetToken() {
 // @Success 200 {object} controllers.Response The Response object
 // @router /update-token [post]
 func (c *ApiController) UpdateToken() {
+	if _, ok := c.RequireAdmin(); !ok {
+		return
+	}
+
 	id := c.Ctx.Input.Query("id")
 
 	var token object.Token
@@ -129,6 +138,14 @@ func (c *ApiController) UpdateToken() {
 // @Success 200 {object} controllers.Response The Response object
 // @router /add-token [post]
 func (c *ApiController) AddToken() {
+	// Token management is an administrator-only operation. Without this gate an
+	// anonymous caller could forge an access token (attacker-controlled value,
+	// bound to any application) and then authenticate as that application —
+	// the entry point of the 2026-10 secret-disclosure incident.
+	if _, ok := c.RequireAdmin(); !ok {
+		return
+	}
+
 	var token object.Token
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &token)
 	if err != nil {
@@ -148,6 +165,10 @@ func (c *ApiController) AddToken() {
 // @Success 200 {object} controllers.Response The Response object
 // @router /delete-token [post]
 func (c *ApiController) DeleteToken() {
+	if _, ok := c.RequireAdmin(); !ok {
+		return
+	}
+
 	var token object.Token
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &token)
 	if err != nil {

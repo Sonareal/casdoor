@@ -231,7 +231,9 @@ func GetMaskedApplication(application *Application, userId string) *Application 
 
 	isOrgUser := false
 	if userId != "" {
-		if isUserIdGlobalAdmin(userId) {
+		// An application credential must not read application secrets back in
+		// plaintext, even though it is otherwise treated as a global admin.
+		if !IsAppUser(userId) && isUserIdGlobalAdmin(userId) {
 			return application
 		}
 
@@ -301,7 +303,7 @@ func GetMaskedApplication(application *Application, userId string) *Application 
 }
 
 func GetMaskedApplications(applications []*Application, userId string) []*Application {
-	if isUserIdGlobalAdmin(userId) {
+	if !IsAppUser(userId) && isUserIdGlobalAdmin(userId) {
 		return applications
 	}
 

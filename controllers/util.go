@@ -170,6 +170,28 @@ func (c *ApiController) IsOrgAdmin() (bool, bool) {
 	return user.IsAdmin, true
 }
 
+// canViewSecrets reports whether the caller may read secrets back in plaintext
+// (provider/application clientSecret, cert private key, ...). Only a real,
+// signed-in human administrator may. An application credential (clientId/
+// clientSecret) is treated as a global admin for ordinary operations, but must
+// NOT be able to read secrets back — nor may an app impersonating a user via
+// the ?userId= on-behalf-of override. Secrets are never disclosed to a
+// non-human principal. This is the chokepoint that stops an attacker who has
+// obtained any app credential from dumping every stored secret in plaintext.
+func (c *ApiController) canViewSecrets() bool {
+	username := c.GetSessionUsername()
+	if username == "" || object.IsAppUser(username) {
+		return false
+	}
+
+	user := c.getCurrentUser()
+	if user == nil {
+		return false
+	}
+
+	return user.IsGlobalAdmin() || user.IsAdmin
+}
+
 // IsMaskedEnabled ...
 func (c *ApiController) IsMaskedEnabled() (bool, bool) {
 	isMaskEnabled := true
@@ -182,8 +204,11 @@ func (c *ApiController) IsMaskedEnabled() (bool, bool) {
 			return false, isMaskEnabled
 		}
 
-		_, ok := c.RequireAdmin()
-		if !ok {
+		// Plaintext secret disclosure requires a real human administrator.
+		// RequireAdmin alone is not enough here: for an app credential it honors
+		// the ?userId= swap and would let "app + userId=built-in/admin" pass.
+		if !c.canViewSecrets() {
+			c.ResponseError(c.T("auth:Unauthorized operation"))
 			return false, isMaskEnabled
 		}
 	}
