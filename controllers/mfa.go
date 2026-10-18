@@ -296,6 +296,15 @@ func (c *ApiController) DeleteMfa() {
 		return
 	}
 
+	// Disabling MFA is self-service (the user, via their own session/token) or
+	// an administrator. It must not be reachable by an application credential
+	// (no "self", and IsAdminOrSelf would treat it as global admin) — that was
+	// a pre-account-takeover MFA-stripping primitive.
+	if object.IsAppUser(c.GetSessionUsername()) || !c.IsAdminOrSelf(user) {
+		c.ResponseError(c.T("auth:Unauthorized operation"))
+		return
+	}
+
 	err = object.DisabledMultiFactorAuth(user)
 	if err != nil {
 		c.ResponseError(err.Error())
@@ -327,6 +336,12 @@ func (c *ApiController) SetPreferredMfa() {
 	}
 	if user == nil {
 		c.ResponseError("User doesn't exist")
+		return
+	}
+
+	// Self-service or administrator only; never an application credential.
+	if object.IsAppUser(c.GetSessionUsername()) || !c.IsAdminOrSelf(user) {
+		c.ResponseError(c.T("auth:Unauthorized operation"))
 		return
 	}
 

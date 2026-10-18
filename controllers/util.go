@@ -129,6 +129,19 @@ func (c *ApiController) RequireSignedInUser() (*object.User, bool) {
 
 // RequireAdmin ...
 func (c *ApiController) RequireAdmin() (string, bool) {
+	// An application credential (clientId/clientSecret), including one that
+	// names a target via the ?userId= on-behalf-of swap, must NEVER be accepted
+	// as an administrator for management operations. Without this, "app +
+	// ?userId=built-in/admin" resolves (in RequireSignedInUser) to the real
+	// admin user and passes every RequireAdmin gate — the escalation primitive
+	// behind the repeated attacks. Legitimate app-credential flows use
+	// IsAdmin()+per-organization whitelists or their own resolvers, never
+	// RequireAdmin (verified against production traffic), so this is safe.
+	if object.IsAppUser(c.GetSessionUsername()) {
+		c.ResponseError(c.T("general:this operation requires administrator to perform"))
+		return "", false
+	}
+
 	user, ok := c.RequireSignedInUser()
 	if !ok {
 		return "", false
