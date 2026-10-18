@@ -169,6 +169,9 @@ func (c *ApiController) GetCert() {
 // @Success 200 {object} controllers.Response The Response object
 // @router /update-cert [post]
 func (c *ApiController) UpdateCert() {
+	if _, ok := c.RequireAdmin(); !ok {
+		return
+	}
 	id := c.Ctx.Input.Query("id")
 
 	var cert object.Cert
@@ -190,6 +193,9 @@ func (c *ApiController) UpdateCert() {
 // @Success 200 {object} controllers.Response The Response object
 // @router /add-cert [post]
 func (c *ApiController) AddCert() {
+	if _, ok := c.RequireAdmin(); !ok {
+		return
+	}
 	var cert object.Cert
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &cert)
 	if err != nil {
@@ -209,6 +215,9 @@ func (c *ApiController) AddCert() {
 // @Success 200 {object} controllers.Response The Response object
 // @router /delete-cert [post]
 func (c *ApiController) DeleteCert() {
+	if _, ok := c.RequireAdmin(); !ok {
+		return
+	}
 	var cert object.Cert
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &cert)
 	if err != nil {

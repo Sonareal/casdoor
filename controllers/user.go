@@ -447,6 +447,9 @@ func (c *ApiController) AddUser() {
 // @Success 200 {object} controllers.Response The Response object
 // @router /delete-user [post]
 func (c *ApiController) DeleteUser() {
+	if _, ok := c.RequireAdmin(); !ok {
+		return
+	}
 	var user object.User
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &user)
 	if err != nil {

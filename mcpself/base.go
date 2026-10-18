@@ -433,16 +433,22 @@ func (c *McpController) checkToolPermission(id interface{}, toolName string) boo
 	// Get JWT claims from the request
 	claims := c.GetClaimsFromToken()
 
-	// If no token is present, check if the user is authenticated via session
+	// If no token is present, check if the user is authenticated via session.
 	if claims == nil {
 		username := c.GetSessionUsername()
-		// If user is authenticated via session (e.g., session cookie), allow access
-		// This maintains backward compatibility with existing session-based auth
-		if username != "" {
-			return true
+		// Session auth must NOT be a blanket bypass of the scope system. An
+		// application credential (resolved from ?accessToken=/clientId by the
+		// sign-in filter) also lands here, and a scope-limited token presented
+		// as a query param would otherwise unlock every admin tool. Only a real
+		// human global admin may drive MCP tools through session auth; everyone
+		// else must use a properly scoped bearer token (the claims path below).
+		if username != "" && !object.IsAppUser(username) {
+			if user := c.getCurrentUser(); user != nil && user.IsGlobalAdmin() {
+				return true
+			}
 		}
 
-		// No authentication present - deny access
+		// No sufficient authentication present - deny access
 		c.sendInsufficientScopeError(id, toolName, []string{})
 		return false
 	}

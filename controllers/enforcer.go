@@ -105,6 +105,9 @@ func (c *ApiController) GetEnforcer() {
 // @Success 200 {object} object.Enforcer
 // @router /update-enforcer [post]
 func (c *ApiController) UpdateEnforcer() {
+	if _, ok := c.RequireAdmin(); !ok {
+		return
+	}
 	id := c.Ctx.Input.Query("id")
 
 	enforcer := object.Enforcer{}
@@ -126,6 +129,9 @@ func (c *ApiController) UpdateEnforcer() {
 // @Success 200 {object} object.Enforcer
 // @router /add-enforcer [post]
 func (c *ApiController) AddEnforcer() {
+	if _, ok := c.RequireAdmin(); !ok {
+		return
+	}
 	enforcer := object.Enforcer{}
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &enforcer)
 	if err != nil {
@@ -145,6 +151,9 @@ func (c *ApiController) AddEnforcer() {
 // @Success 200 {object} object.Enforcer
 // @router /delete-enforcer [post]
 func (c *ApiController) DeleteEnforcer() {
+	if _, ok := c.RequireAdmin(); !ok {
+		return
+	}
 	var enforcer object.Enforcer
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &enforcer)
 	if err != nil {
@@ -234,6 +243,9 @@ func (c *ApiController) GetFilteredPolicies() {
 // @Success 200 {object} Response
 // @router /update-policy [post]
 func (c *ApiController) UpdatePolicy() {
+	if _, ok := c.RequireAdmin(); !ok {
+		return
+	}
 	id := c.Ctx.Input.Query("id")
 
 	var policies []xormadapter.CasbinRule
@@ -261,6 +273,9 @@ func (c *ApiController) UpdatePolicy() {
 // @Success 200 {object} Response
 // @router /add-policy [post]
 func (c *ApiController) AddPolicy() {
+	if _, ok := c.RequireAdmin(); !ok {
+		return
+	}
 	id := c.Ctx.Input.Query("id")
 
 	var policy xormadapter.CasbinRule
@@ -288,6 +303,9 @@ func (c *ApiController) AddPolicy() {
 // @Success 200 {object} Response
 // @router /remove-policy [post]
 func (c *ApiController) RemovePolicy() {
+	if _, ok := c.RequireAdmin(); !ok {
+		return
+	}
 	id := c.Ctx.Input.Query("id")
 
 	var policy xormadapter.CasbinRule

@@ -155,6 +155,9 @@ func (c *ApiController) GetLdap() {
 // @Success 200 {object} controllers.Response The Response object
 // @router /add-ldap [post]
 func (c *ApiController) AddLdap() {
+	if _, ok := c.RequireAdmin(); !ok {
+		return
+	}
 	var ldap object.Ldap
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &ldap)
 	if err != nil {
@@ -198,6 +201,9 @@ func (c *ApiController) AddLdap() {
 // @Success 200 {object} controllers.Response The Response object
 // @router /update-ldap [post]
 func (c *ApiController) UpdateLdap() {
+	if _, ok := c.RequireAdmin(); !ok {
+		return
+	}
 	var ldap object.Ldap
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &ldap)
 	if err != nil || util.IsStringsEmpty(ldap.Id, ldap.Owner, ldap.ServerName, ldap.Host, ldap.Username, ldap.Password, ldap.BaseDn) {
@@ -243,6 +249,9 @@ func (c *ApiController) UpdateLdap() {
 // @Success 200 {object} controllers.Response The Response object
 // @router /delete-ldap [post]
 func (c *ApiController) DeleteLdap() {
+	if _, ok := c.RequireAdmin(); !ok {
+		return
+	}
 	var ldap object.Ldap
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &ldap)
 	if err != nil {
@@ -270,6 +279,9 @@ func (c *ApiController) DeleteLdap() {
 // @Success 200 {object} controllers.LdapSyncResp The Response object
 // @router /sync-ldap-users [post]
 func (c *ApiController) SyncLdapUsers() {
+	if _, ok := c.RequireAdmin(); !ok {
+		return
+	}
 	id := c.Ctx.Input.Query("id")
 
 	owner, ldapId, err := util.GetOwnerAndNameFromIdWithError(id)

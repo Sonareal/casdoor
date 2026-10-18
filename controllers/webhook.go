@@ -105,6 +105,9 @@ func (c *ApiController) GetWebhook() {
 // @Success 200 {object} controllers.Response The Response object
 // @router /update-webhook [post]
 func (c *ApiController) UpdateWebhook() {
+	if _, ok := c.RequireAdmin(); !ok {
+		return
+	}
 	id := c.Ctx.Input.Query("id")
 
 	var webhook object.Webhook
@@ -126,6 +129,9 @@ func (c *ApiController) UpdateWebhook() {
 // @Success 200 {object} controllers.Response The Response object
 // @router /add-webhook [post]
 func (c *ApiController) AddWebhook() {
+	if _, ok := c.RequireAdmin(); !ok {
+		return
+	}
 	var webhook object.Webhook
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &webhook)
 	if err != nil {
@@ -145,6 +151,9 @@ func (c *ApiController) AddWebhook() {
 // @Success 200 {object} controllers.Response The Response object
 // @router /delete-webhook [post]
 func (c *ApiController) DeleteWebhook() {
+	if _, ok := c.RequireAdmin(); !ok {
+		return
+	}
 	var webhook object.Webhook
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &webhook)
 	if err != nil {

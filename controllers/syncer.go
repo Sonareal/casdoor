@@ -106,6 +106,9 @@ func (c *ApiController) GetSyncer() {
 // @Success 200 {object} controllers.Response The Response object
 // @router /update-syncer [post]
 func (c *ApiController) UpdateSyncer() {
+	if _, ok := c.RequireAdmin(); !ok {
+		return
+	}
 	id := c.Ctx.Input.Query("id")
 
 	var syncer object.Syncer
@@ -127,6 +130,9 @@ func (c *ApiController) UpdateSyncer() {
 // @Success 200 {object} controllers.Response The Response object
 // @router /add-syncer [post]
 func (c *ApiController) AddSyncer() {
+	if _, ok := c.RequireAdmin(); !ok {
+		return
+	}
 	var syncer object.Syncer
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &syncer)
 	if err != nil {
@@ -146,6 +152,9 @@ func (c *ApiController) AddSyncer() {
 // @Success 200 {object} controllers.Response The Response object
 // @router /delete-syncer [post]
 func (c *ApiController) DeleteSyncer() {
+	if _, ok := c.RequireAdmin(); !ok {
+		return
+	}
 	var syncer object.Syncer
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &syncer)
 	if err != nil {
