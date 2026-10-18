@@ -484,7 +484,17 @@ func getClaimsCustom(claims Claims, tokenField []string, tokenAttributes []*JwtI
 }
 
 func refineUser(user *User) *User {
+	// Credentials and MFA secrets must never travel inside a token. The access
+	// and id tokens are handed to the OAuth client, may be logged, and are
+	// otherwise exposed; embedding the TOTP seed / recovery codes enables full
+	// MFA bypass, and the password hash/salt enables offline cracking.
 	user.Password = ""
+	user.PasswordSalt = ""
+	user.PasswordType = ""
+	user.Hash = ""
+	user.PreHash = ""
+	user.TotpSecret = ""
+	user.RecoveryCodes = nil
 
 	if user.Address == nil {
 		user.Address = []string{}

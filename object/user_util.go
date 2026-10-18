@@ -549,6 +549,22 @@ func CheckPermissionForUpdateUser(oldUser, newUser *User, isAdmin bool, allowDis
 		newUser.IsAdmin = oldUser.IsAdmin
 		newUser.IsForbidden = oldUser.IsForbidden
 		newUser.IsDeleted = oldUser.IsDeleted
+
+		// Monetary, type and ranking fields are never settable by the user
+		// themselves either. The per-item checks below gate them on the
+		// organization's account-item ViewRule, but userVisible() fails open
+		// (returns true for any ViewRule != "Admin"), and the default "Balance"
+		// item is seeded with ViewRule "Self" — so without this pin a normal
+		// user can POST /api/update-user?columns=balance and mint an arbitrary
+		// balance (then withdraw / spend it). These must not depend on the
+		// account-item configuration being locked down.
+		newUser.Balance = oldUser.Balance
+		newUser.BalanceCredit = oldUser.BalanceCredit
+		newUser.BalanceCurrency = oldUser.BalanceCurrency
+		newUser.Score = oldUser.Score
+		newUser.Karma = oldUser.Karma
+		newUser.Ranking = oldUser.Ranking
+		newUser.Type = oldUser.Type
 	}
 
 	if oldUser.Owner != newUser.Owner {
